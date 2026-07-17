@@ -18,7 +18,7 @@ export const list = () => {
         .sort((a, b) => b.creationTime - a.creationTime);
 };
 
-export const deleteSelected = async (multiSelectList) => {
+export const deleteSelected = async multiSelectList => {
     await Promise.all(
         multiSelectList.map(async videoUri => {
             const video = new File(videoUri);
@@ -28,4 +28,19 @@ export const deleteSelected = async (multiSelectList) => {
             if (thumb.exists) await thumb.delete();
         })
     );
+};
+
+export const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+
+    const units = ["KB", "MB", "GB", "TB"];
+    let size = bytes / 1024;
+    let unit = 0;
+
+    while (size >= 1024 && unit < units.length - 1) {
+        size /= 1024;
+        unit++;
+    }
+
+    return `${size.toFixed(2)} ${units[unit]}`;
 };

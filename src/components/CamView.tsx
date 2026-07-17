@@ -26,6 +26,7 @@ const CamView = ({ fullview, toggleFullView }) => {
 
     const cameraRef = useRef(null);
     const features = useRef(null);
+    const recordingRef = useRef(false);
 
     if (!camPermission) return <View />;
 
@@ -51,23 +52,34 @@ const CamView = ({ fullview, toggleFullView }) => {
         }
     };
 
-    const toggleRecord = async () => {
-        if (isRecording) {
-            await cameraRef.current.stopRecording();
-            setRecording(false);
-        } else {
-            setRecording(true);
+    const startRecord = async () => {
+        while (recordingRef.current) {
             const { uri } = await cameraRef.current.recordAsync({
-                // maxDuration: 0,
-                // maxFileSize: 0
+                maxDuration: 600
             });
-            saveToFilesystem(uri);
+
+            await saveToFilesystem(uri);
+        }
+    };
+
+    const toggleRecord = async () => {
+        if (recordingRef.current) {
+            recordingRef.current = false;
+            setRecording(false);
+            await cameraRef.current.stopRecording();
+        } else {
+            recordingRef.current = true;
+            setRecording(true);
+            startRecord(); // don't await
         }
     };
 
     const toggleMic = () => setMuted(p => !p);
 
-    const togglePause = () => cameraRef.current.toggleRecordingAsync();
+    const togglePause = () => {
+        cameraRef.current.toggleRecordingAsync();
+        setPaused(p => !p);
+    };
 
     const changeVideoQuality = v => setVideoQuality(v);
 
