@@ -32,11 +32,12 @@ export default function App() {
                 </View>
             )}
 
-            <CamView />
         </View>
     );
 }
+            // <CamView />
 
+            
 const styles = StyleSheet.create({
     container: {
         flex: 1,

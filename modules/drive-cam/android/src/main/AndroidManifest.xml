@@ -1,2 +1,10 @@
-<manifest>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- The service MUST be declared here so the module is self-contained -->
+        <service 
+            android:name="expo.modules.drivecam.CameraForegroundService" 
+            android:enabled="true" 
+            android:exported="false" 
+            android:foregroundServiceType="camera" />
+    </application>
 </manifest>
