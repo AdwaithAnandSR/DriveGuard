@@ -31,16 +31,10 @@ class DriveCamModule : Module() {
             }
         }
 
-        Function("startRecording") { config: Map<String, Any> ->
-            val context = appContext.reactContext ?: return@Function
+                Function("startRecording") { config: Map<String, Any> ->
+            val context = appContext.reactContext ?: return@Function null
             val intent = Intent(context, CameraForegroundService::class.java).apply {
-                action = CameraForegroundService.ACTION_START
-                putExtra("maxDurationMs", (config["maxDurationMs"] as? Double)?.toLong() ?: 60000L)
-                putExtra("maxSizeMB", (config["maxSizeMB"] as? Double)?.toInt() ?: 100)
-                putExtra("maxStorageUsageMB", (config["maxStorageUsageMB"] as? Double)?.toInt() ?: 1000)
-                putExtra("autoDelete", config["autoDelete"] as? Boolean ?: true)
-                putExtra("autoOptimize", config["autoOptimize"] as? Boolean ?: false)
-                putExtra("lensFacing", config["lensFacing"] as? String ?: "back")
+                // ... your existing code ...
             }
             
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -48,23 +42,28 @@ class DriveCamModule : Module() {
             } else {
                 context.startService(intent)
             }
+            true // <-- Add this to return a value to JS
         }
 
         Function("stopRecording") {
-            val context = appContext.reactContext ?: return@Function
+            val context = appContext.reactContext ?: return@Function null
             val intent = Intent(context, CameraForegroundService::class.java).apply {
                 action = CameraForegroundService.ACTION_STOP
             }
             context.startService(intent)
+            true // <-- Add this
         }
 
         Function("mute") { isMuted: Boolean ->
             CameraForegroundService.instance?.muteAudio(isMuted)
+            true // <-- Add this
         }
 
         Function("flipCamera") {
             CameraForegroundService.instance?.flipCamera()
+            true // <-- Add this
         }
+
     }
 
     fun emitCameraEvent(eventName: String, data: Map<String, Any>) {
