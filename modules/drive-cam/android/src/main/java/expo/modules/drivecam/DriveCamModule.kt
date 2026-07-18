@@ -32,45 +32,61 @@ class DriveCamModule : Module() {
         }
 
         Function("startRecording") { config: Map<String, Any> ->
-            val context = appContext.reactContext ?: return@Function false
-            val intent = Intent(context, CameraForegroundService::class.java).apply {
-                action = CameraForegroundService.ACTION_START
-                putExtra("maxDurationMs", (config["maxDurationMs"] as? Number)?.toLong() ?: 60000L)
-                putExtra("maxSizeMB", (config["maxSizeMB"] as? Number)?.toInt() ?: 100)
-                putExtra("maxStorageUsageMB", (config["maxStorageUsageMB"] as? Number)?.toInt() ?: 1000)
-                putExtra("autoDelete", config["autoDelete"] as? Boolean ?: true)
-                putExtra("autoOptimize", config["autoOptimize"] as? Boolean ?: false)
-                putExtra("lensFacing", config["lensFacing"] as? String ?: "back")
-            }
-            
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
+            val context = appContext.reactContext
+            if (context != null) {
+                val intent = Intent(context, CameraForegroundService::class.java).apply {
+                    action = CameraForegroundService.ACTION_START
+                    putExtra("maxDurationMs", (config["maxDurationMs"] as? Number)?.toLong() ?: 60000L)
+                    putExtra("maxSizeMB", (config["maxSizeMB"] as? Number)?.toInt() ?: 100)
+                    putExtra("maxStorageUsageMB", (config["maxStorageUsageMB"] as? Number)?.toInt() ?: 1000)
+                    putExtra("autoDelete", config["autoDelete"] as? Boolean ?: true)
+                    putExtra("autoOptimize", config["autoOptimize"] as? Boolean ?: false)
+                    putExtra("lensFacing", config["lensFacing"] as? String ?: "back")
+                }
+                
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+                true
             } else {
-                context.startService(intent)
+                false
             }
+        }
+
+        Function("stopRecording") {
+            val context = appContext.reactContext
+            if (context != null) {
+                val intent = Intent(context, CameraForegroundService::class.java).apply {
+                    action = CameraForegroundService.ACTION_STOP
+                }
+                context.startService(intent)
+                true
+            } else {
+                false
+            }
+        }
+
+        Function("pauseRecording") {
+            CameraForegroundService.instance?.pauseRecording()
             true
         }
 
-
-        Function("stopRecording") {
-            val context = appContext.reactContext ?: return@Function null
-            val intent = Intent(context, CameraForegroundService::class.java).apply {
-                action = CameraForegroundService.ACTION_STOP
-            }
-            context.startService(intent)
-            true // <-- Add this
+        Function("resumeRecording") {
+            CameraForegroundService.instance?.resumeRecording()
+            true
         }
 
         Function("mute") { isMuted: Boolean ->
             CameraForegroundService.instance?.muteAudio(isMuted)
-            true // <-- Add this
+            true
         }
 
         Function("flipCamera") {
             CameraForegroundService.instance?.flipCamera()
-            true // <-- Add this
+            true
         }
-
     }
 
     fun emitCameraEvent(eventName: String, data: Map<String, Any>) {

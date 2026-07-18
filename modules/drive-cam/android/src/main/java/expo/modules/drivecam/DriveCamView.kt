@@ -13,7 +13,6 @@ class DriveCamView(context: Context, appContext: AppContext) : ExpoView(context,
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT
         )
-        // COMPATIBLE mode is safer for React Native rendering
         implementationMode = PreviewView.ImplementationMode.COMPATIBLE
     }
 
@@ -21,17 +20,17 @@ class DriveCamView(context: Context, appContext: AppContext) : ExpoView(context,
         addView(previewView)
     }
 
-    // Inside DriveCamView.kt
     fun setPreviewEnabled(enabled: Boolean) {
-        val provider = if (enabled) previewView.surfaceProvider else null
-        CameraForegroundService.activeSurfaceProvider = provider
-        // Correctly call the method we added in step 1
-        CameraForegroundService.instance?.attachSurfaceProvider(provider)
+        // Run on the UI layout poster queue to eliminate black screens caused by thread collisions
+        previewView.post {
+            val provider = if (enabled) previewView.surfaceProvider else null
+            CameraForegroundService.activeSurfaceProvider = provider
+            CameraForegroundService.instance?.attachSurfaceProvider(provider)
+        }
     }
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
-        // Prevent memory leaks when the UI unmounts
         CameraForegroundService.activeSurfaceProvider = null
         CameraForegroundService.instance?.attachSurfaceProvider(null)
     }

@@ -4,19 +4,27 @@ import { CameraConfig } from "./DriveCam.types";
 const DriveCamModule = requireNativeModule("DriveCam");
 const emitter = new EventEmitter(DriveCamModule);
 
-export function startRecording(config: CameraConfig) {
+export function startRecording(config: CameraConfig): boolean {
     return DriveCamModule.startRecording(config);
 }
 
-export function stopRecording() {
+export function stopRecording(): boolean {
     return DriveCamModule.stopRecording();
 }
 
-export function mute(isMuted: boolean) {
+export function pauseRecording(): boolean {
+    return DriveCamModule.pauseRecording();
+}
+
+export function resumeRecording(): boolean {
+    return DriveCamModule.resumeRecording();
+}
+
+export function mute(isMuted: boolean): boolean {
     return DriveCamModule.mute(isMuted);
 }
 
-export function flipCamera() {
+export function flipCamera(): boolean {
     return DriveCamModule.flipCamera();
 }
 
