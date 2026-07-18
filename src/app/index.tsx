@@ -1,32 +1,38 @@
 import { useState } from "react";
 import { Button, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-// import { Host, Icon } from "@expo/ui";
-
+import { Host, Icon } from "@expo/ui";
+import { router } from "expo-router";
+import Settings from "@expo/material-symbols/settings.xml";
 
 import CamView from "../components/CamView.tsx";
+import { useStore } from "../utils/store.ts";
 
-// const FitScreen = require("../../assets/fit_screen_rounded.xml");
-
-// <Host matchContents>
-//     <Icon
-//         name={Icon.select({
-//             ios: "star.fill",
-//             android: import("@expo/material-symbols/star.xml")
-//         })}
-//         size={32}
-//         color="orange"
-//     />
-// </Host>
 export default function App() {
-    const [fullview, setFullview] = useState(false);
-
-    const toggleFullView = v => setFullview(v => !v);
+    const fullview = useStore(state => state.fullview);
 
     return (
         <View style={styles.container}>
-            {!fullview && <Text style={styles.header}>Drive Guard</Text>}
+            {!fullview && (
+                <View
+                    style={{
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        paddingRight: 25
+                    }}
+                >
+                    <Text style={styles.header}>Drive Guard</Text>
+                    <Host
+                        matchContents
+                    >
+                        <Icon
+                        onPress={() => router.push("/Settings")}
+                        name={Settings} size={30} color={"white"} />
+                    </Host>
+                </View>
+            )}
 
-            <CamView fullview={fullview} toggleFullView={toggleFullView} />
+            <CamView />
         </View>
     );
 }

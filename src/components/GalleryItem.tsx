@@ -33,8 +33,6 @@ const RenderItem = ({
         date.split(" ")[1]?.trim()
     ];
 
-    console.log(item);
-
     return (
         <TouchableOpacity
             onLongPress={() => toggleSelectItem(item.uri)}
@@ -50,7 +48,9 @@ const RenderItem = ({
                 flex: 1 / 3,
                 aspectRatio: 1,
                 backgroundColor: "#1c1c1c6f",
-                borderRadius: 22
+                borderRadius: 22,
+                margin: 1,
+                overflow: "hidden"
             }}
         >
             <View
@@ -63,7 +63,8 @@ const RenderItem = ({
                     alignItems: "center",
                     paddingHorizontal: 8,
                     zIndex: 999,
-                    backgroundColor: "#1c1c1c6f"
+                    backgroundColor: "#1c1c1cbe",
+                    height: "15%"
                 }}
             >
                 <TouchableOpacity
@@ -91,12 +92,14 @@ const RenderItem = ({
             <View
                 style={{
                     position: "absolute",
-                    bottom: "8%",
+                    bottom: "0%",
                     flexDirection: "row",
                     width: "100%",
                     justifyContent: "space-between",
-                    alignItems: "flex-end",
-                    paddingHorizontal: 8
+                    alignItems: "center",
+                    paddingHorizontal: 8,
+                    backgroundColor: "#1c1c1cbe",
+                    height: "20%"
                 }}
             >
                 <Text style={{ color: "white", fontSize: 10 }}>{datePart}</Text>

@@ -1,18 +1,24 @@
-import { Directory, File } from "expo-file-system";
+import { Directory, File, Paths } from "expo-file-system";
+
+import { useStore } from "./store.ts";
 
 const RECORDINGS_DIR = new Directory(Paths.document, "Recordings");
 
-const MB = 1024 * 1024;
-const GB = MB * 1024;
-
-const limitBytes = 1 * GB;
+const files = RECORDINGS_DIR.list().filter(
+    (item): item is File => item instanceof File
+);
 
 const cleanup = async () => {
     if (!RECORDINGS_DIR.exists) return;
+    const autoDelete = useStore.getState().autoDelete;
+    if (!autoDelete) return;
 
     const files = RECORDINGS_DIR.list().filter(
         (item): item is File => item instanceof File
     );
+
+    const videoFiles = files.filter(f => f.type?.startsWith("video/"));
+    if (videoFiles.length < 2) return;
 
     const videos = files.map(file => ({
         file,
@@ -21,10 +27,10 @@ const cleanup = async () => {
     }));
 
     let totalSize = videos.reduce((sum, v) => sum + v.size, 0);
+    const limitBytes = useStore.getState().limitBytes;
 
     if (totalSize <= limitBytes) return;
 
-    // Oldest first
     videos.sort((a, b) => a.created - b.created);
 
     for (const video of videos) {
@@ -32,6 +38,10 @@ const cleanup = async () => {
 
         totalSize -= video.size;
         video.file.delete();
+
+        const thumbnailUri = video.file.uri.replace(/\.mp4$/i, ".jpg");
+        const thumbnailFile = new File(thumbnailUri);
+        if (thumbnailFile.exists) thumbnailFile.delete();
     }
 };
 

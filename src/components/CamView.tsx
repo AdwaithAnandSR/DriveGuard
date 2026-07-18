@@ -7,28 +7,44 @@ import {
     useMicrophonePermissions,
     Camera
 } from "expo-camera";
-import { router } from "expo-router";
+import { router, useIsFocused } from "expo-router";
+import { Host, Icon } from "@expo/ui";
+import FlipCam from "@expo/material-symbols/flip_camera_ios.xml";
+import PhotoLib from "@expo/material-symbols/photo_library.xml";
+import Pause from "@expo/material-symbols/pause.xml";
+import Play from "@expo/material-symbols/play_arrow.xml";
 
 import Options from "./CamOptions.tsx";
 
 import saveToFilesystem from "../utils/saveToFilesystem.ts";
+import { useStore } from "../utils/store.ts";
 
-const CamView = ({ fullview, toggleFullView }) => {
+const CamView = () => {
     const [facing, setFacing] = useState<CameraType>("back");
-    const [muted, setMuted] = useState(false);
-    const [videoQuality, setVideoQuality] = useState("2160p");
     const [isRecording, setRecording] = useState(false);
     const [paused, setPaused] = useState(false);
-    const [preview, setPreview] = useState(true);
 
     const [camPermission, requestCamPermission] = useCameraPermissions();
     const [micPermission, requestMicPermission] = useMicrophonePermissions();
+
+    const isFocused = useIsFocused();
+
+    const videoQuality = useStore(state => state.videoQuality);
+    const limitDuration = useStore(state => state.limitDuration);
+    const limitBytes = useStore(state => state.limitBytes);
+    const isMuted = useStore(state => state.isMuted);
+    const fullview = useStore(state => state.fullview);
 
     const cameraRef = useRef(null);
     const features = useRef(null);
     const recordingRef = useRef(false);
 
-    if (!camPermission) return <View />;
+    if (!camPermission)
+        return (
+            <View
+                style={[styles.camera, { height: fullview ? "100%" : "85%" }]}
+            />
+        );
 
     const toggleCameraFacing = () =>
         setFacing(current => (current === "back" ? "front" : "back"));
@@ -42,20 +58,11 @@ const CamView = ({ fullview, toggleFullView }) => {
         features.current = await cameraRef?.current?.getSupportedFeatures();
     };
 
-    const togglePreview = () => {
-        if (preview) {
-            setPreview(false);
-            cameraRef.current.pausePreview();
-        } else {
-            setPreview(true);
-            cameraRef.current.resumePreview();
-        }
-    };
-
     const startRecord = async () => {
         while (recordingRef.current) {
             const { uri } = await cameraRef.current.recordAsync({
-                maxDuration: 600
+                maxDuration: limitDuration,
+                maxBytes: limitBytes
             });
 
             await saveToFilesystem(uri);
@@ -70,18 +77,14 @@ const CamView = ({ fullview, toggleFullView }) => {
         } else {
             recordingRef.current = true;
             setRecording(true);
-            startRecord(); // don't await
+            startRecord();
         }
     };
-
-    const toggleMic = () => setMuted(p => !p);
 
     const togglePause = () => {
         cameraRef.current.toggleRecordingAsync();
         setPaused(p => !p);
     };
-
-    const changeVideoQuality = v => setVideoQuality(v);
 
     return (
         <View style={styles.camContainer}>
@@ -91,7 +94,7 @@ const CamView = ({ fullview, toggleFullView }) => {
                         <Text style={styles.camReqPText}>Grant Permission</Text>
                     </TouchableOpacity>
                 </View>
-            ) : (
+            ) : isFocused ? (
                 <CameraView
                     ref={cameraRef}
                     style={[
@@ -99,74 +102,101 @@ const CamView = ({ fullview, toggleFullView }) => {
                         { height: fullview ? "100%" : "85%" }
                     ]}
                     facing={facing}
-                    mode={"video"}
-                    mute={muted}
+                    mode="video"
+                    mute={isMuted}
                     videoQuality={videoQuality}
                     onCameraReady={fetch}
-                    // videoStabilizationMode 'off' | 'standard' | 'cinematic' | 'auto'
+                />
+            ) : (
+                <View
+                    style={[
+                        styles.camera,
+                        { height: fullview ? "100%" : "85%" }
+                    ]}
                 />
             )}
 
             <Options
                 camPermission={camPermission}
                 micPermission={micPermission}
-                videoQuality={videoQuality}
-                changeVideoQuality={changeVideoQuality}
-                toggleFullView={toggleFullView}
-                fullview={fullview}
-                muted={muted}
-                toggleMic={toggleMic}
-                togglePreview={togglePreview}
-                preview={preview}
+                isRecording={isRecording}
             />
 
-            <TouchableOpacity
-                onPress={toggleRecord}
-                style={[
-                    styles.recordOuter,
-                    { bottom: fullview ? "5%" : "18%" }
-                ]}
+            <View
+                style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    position: "absolute",
+                    bottom: fullview ? "5%" : "18%",
+                    width: "100%",
+                    paddingHorizontal: 20
+                }}
             >
+                {/* Left */}
                 <View
-                    style={[
-                        styles.recordInner,
-                        {
-                            borderRadius: isRecording ? 10 : 60,
-                            height: isRecording ? 40 : 55,
-                            width: isRecording ? 40 : 55
-                        }
-                    ]}
-                />
-            </TouchableOpacity>
+                    style={{
+                        flex: 1,
+                        alignItems: "center"
+                    }}
+                >
+                    {features?.current?.toggleRecordingAsyncAvailable &&
+                        isRecording && (
+                            <Host matchContents>
+                                <Icon
+                                    onPress={togglePause}
+                                    name={paused ? Play : Pause}
+                                    size={paused ? 50 : 45}
+                                    color="white"
+                                />
+                            </Host>
+                        )}
+                </View>
 
-            {features?.current?.toggleRecordingAsyncAvailable &&
-                isRecording && (
+                {/* Center */}
+                <View style={{ flex: 1, alignItems: "center" }}>
                     <TouchableOpacity
-                        onPress={togglePause}
-                        style={[
-                            styles.recordOuter,
-                            { left: "25%", bottom: fullview ? "5%" : "18%" }
-                        ]}
+                        onPress={toggleRecord}
+                        style={styles.recordOuter}
                     >
-                        <Text style={{ fontSize: 25 }}>
-                            {paused ? "▶️" : "⏸️"}
-                        </Text>
+                        <View
+                            style={[
+                                styles.recordInner,
+                                {
+                                    borderRadius: isRecording ? 10 : 60,
+                                    height: isRecording ? 40 : 55,
+                                    width: isRecording ? 40 : 55
+                                }
+                            ]}
+                        />
                     </TouchableOpacity>
-                )}
+                </View>
 
-            <TouchableOpacity
-                style={[
-                    styles.recordOuter,
-                    { left: "75%", bottom: fullview ? "5%" : "18%" }
-                ]}
-                onPress={toggleCameraFacing}
+                {/* Right */}
+                <View style={{ flex: 1, alignItems: "center" }}>
+                    <Host matchContents>
+                        <Icon
+                            onPress={toggleCameraFacing}
+                            name={FlipCam}
+                            size={35}
+                            color="white"
+                        />
+                    </Host>
+                </View>
+            </View>
+
+            <Host
+                style={{
+                    margin: 10
+                }}
+                matchContents
             >
-                <Text style={{ fontSize: 25 }}>🐬</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => router.push("/Gallery")}>
-                <Text style={{ fontSize: 35, padding: 20 }}>🖼️</Text>
-            </TouchableOpacity>
+                <Icon
+                    onPress={() => router.push("/Gallery")}
+                    name={PhotoLib}
+                    size={40}
+                    color="white"
+                />
+            </Host>
         </View>
     );
 };
@@ -194,11 +224,7 @@ const styles = StyleSheet.create({
         borderRadius: 60,
         backgroundColor: "white",
         justifyContent: "center",
-        alignItems: "center",
-        position: "absolute",
-
-        left: "50%",
-        transform: [{ translateX: -25 }]
+        alignItems: "center"
     },
     recordInner: {
         backgroundColor: "red"
