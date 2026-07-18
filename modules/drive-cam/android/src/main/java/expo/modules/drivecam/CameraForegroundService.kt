@@ -176,6 +176,12 @@ class CameraForegroundService : LifecycleService() {
         lensFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK) CameraSelector.LENS_FACING_FRONT else CameraSelector.LENS_FACING_BACK
         startCamera()
     }
+    
+    // Add this method inside your CameraForegroundService class
+fun attachSurfaceProvider(provider: Preview.SurfaceProvider?) {
+    previewUseCase?.setSurfaceProvider(provider)
+}
+
 
     private fun stopRecordingLogic() {
         activeRecording?.stop()

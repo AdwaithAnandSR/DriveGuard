@@ -31,10 +31,16 @@ class DriveCamModule : Module() {
             }
         }
 
-                Function("startRecording") { config: Map<String, Any> ->
-            val context = appContext.reactContext ?: return@Function null
+        Function("startRecording") { config: Map<String, Any> ->
+            val context = appContext.reactContext ?: return@Function false
             val intent = Intent(context, CameraForegroundService::class.java).apply {
-                // ... your existing code ...
+                action = CameraForegroundService.ACTION_START
+                putExtra("maxDurationMs", (config["maxDurationMs"] as? Number)?.toLong() ?: 60000L)
+                putExtra("maxSizeMB", (config["maxSizeMB"] as? Number)?.toInt() ?: 100)
+                putExtra("maxStorageUsageMB", (config["maxStorageUsageMB"] as? Number)?.toInt() ?: 1000)
+                putExtra("autoDelete", config["autoDelete"] as? Boolean ?: true)
+                putExtra("autoOptimize", config["autoOptimize"] as? Boolean ?: false)
+                putExtra("lensFacing", config["lensFacing"] as? String ?: "back")
             }
             
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -42,8 +48,9 @@ class DriveCamModule : Module() {
             } else {
                 context.startService(intent)
             }
-            true // <-- Add this to return a value to JS
+            true
         }
+
 
         Function("stopRecording") {
             val context = appContext.reactContext ?: return@Function null

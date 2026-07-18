@@ -21,14 +21,12 @@ class DriveCamView(context: Context, appContext: AppContext) : ExpoView(context,
         addView(previewView)
     }
 
+    // Inside DriveCamView.kt
     fun setPreviewEnabled(enabled: Boolean) {
-        if (enabled) {
-            CameraForegroundService.activeSurfaceProvider = previewView.surfaceProvider
-        } else {
-            CameraForegroundService.activeSurfaceProvider = null
-        }
-        // Notify the service to attach or detach the UI rendering
-        CameraForegroundService.instance?.attachSurfaceProvider(CameraForegroundService.activeSurfaceProvider)
+        val provider = if (enabled) previewView.surfaceProvider else null
+        CameraForegroundService.activeSurfaceProvider = provider
+        // Correctly call the method we added in step 1
+        CameraForegroundService.instance?.attachSurfaceProvider(provider)
     }
 
     override fun onDetachedFromWindow() {
