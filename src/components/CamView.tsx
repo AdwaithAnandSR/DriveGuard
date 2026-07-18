@@ -61,7 +61,7 @@ const CamView = () => {
     const startRecord = async () => {
         while (recordingRef.current) {
             const { uri } = await cameraRef.current.recordAsync({
-                maxDuration: limitDuration,
+                maxDuration: limitDuration * 60,
                 maxBytes: limitBytes
             });
 

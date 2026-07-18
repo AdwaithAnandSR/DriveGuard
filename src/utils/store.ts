@@ -9,6 +9,7 @@ interface SettingsState {
     limitBytes: number;
     limitDuration: number;
     isMuted: boolean;
+    fullview: boolean;
     autoDelete: boolean;
 
     setVideoQuality: (quality: VideoQuality) => void;
@@ -16,7 +17,7 @@ interface SettingsState {
     setLimitDuration: (bytes: number) => void;
     toggleMuted: () => void;
     toggleFullview: () => void;
-    toggleAutoDelete: (value: boolean) => void;
+    setAutoDelete: (value: boolean) => void;
 }
 
 export const useStore = create<SettingsState>()(

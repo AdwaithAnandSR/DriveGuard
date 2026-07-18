@@ -4,10 +4,6 @@ import { useStore } from "./store.ts";
 
 const RECORDINGS_DIR = new Directory(Paths.document, "Recordings");
 
-const files = RECORDINGS_DIR.list().filter(
-    (item): item is File => item instanceof File
-);
-
 const cleanup = async () => {
     if (!RECORDINGS_DIR.exists) return;
     const autoDelete = useStore.getState().autoDelete;
@@ -20,7 +16,7 @@ const cleanup = async () => {
     const videoFiles = files.filter(f => f.type?.startsWith("video/"));
     if (videoFiles.length < 2) return;
 
-    const videos = files.map(file => ({
+    const videos = videoFiles.map(file => ({
         file,
         size: file.size ?? 0,
         created: file.creationTime ?? 0
@@ -39,7 +35,7 @@ const cleanup = async () => {
         totalSize -= video.size;
         video.file.delete();
 
-        const thumbnailUri = video.file.uri.replace(/\.mp4$/i, ".jpg");
+        const thumbnailUri = video.file.uri.replace(/\.[^.]+$/, ".jpg");
         const thumbnailFile = new File(thumbnailUri);
         if (thumbnailFile.exists) thumbnailFile.delete();
     }

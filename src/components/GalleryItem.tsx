@@ -9,6 +9,7 @@ export interface VideoItem {
     uri: string;
     creationTime: number;
     thumbnail: string;
+    size: number;
 }
 
 interface RenderItemProps {
