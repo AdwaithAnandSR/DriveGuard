@@ -178,9 +178,9 @@ class CameraForegroundService : LifecycleService() {
     }
     
     // Add this method inside your CameraForegroundService class
-fun attachSurfaceProvider(provider: Preview.SurfaceProvider?) {
-    previewUseCase?.setSurfaceProvider(provider)
-}
+    fun attachSurfaceProvider(provider: Preview.SurfaceProvider?) {
+        previewUseCase?.setSurfaceProvider(provider)
+    }
 
 
     private fun stopRecordingLogic() {
