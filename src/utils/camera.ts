@@ -1,25 +1,26 @@
-import { requireNativeModule } from "expo-modules-core";
-import * as Camera from "expo-camera"; // Assuming expo-camera for permissions
+import {
+    requireNativeModule,
+    requireNativeViewManager
+} from "expo-modules-core";
+import { NativeEventEmitter } from "react-native";
+import { Camera } from "expo-camera";
 
 const DriveCam = requireNativeModule("DriveCam");
+export const CameraView = requireNativeViewManager("DriveCam");
+// export const CamEmitter = new NativeEventEmitter(DriveCam);
 
 export const CamUtils = {
-    /**
-     * Safe wrapper to start recording
-     */
     async startRecording(config: any) {
         try {
-            // 1. Check for necessary permissions first
-            // const { status: cameraStatus } =
-            //     await Camera.requestCameraPermissionsAsync();
-            // const { status: audioStatus } =
-            //     await Camera.requestMicrophonePermissionsAsync();
+            const { status: cameraStatus } =
+                await Camera.requestCameraPermissionsAsync();
+            const { status: audioStatus } =
+                await Camera.requestMicrophonePermissionsAsync();
 
-            // if (cameraStatus !== "granted" || audioStatus !== "granted") {
-            //     throw new Error("Permissions not granted for camera or audio");
-            // }
+            if (cameraStatus !== "granted" || audioStatus !== "granted") {
+                throw new Error("Permissions not granted for camera or audio");
+            }
 
-            // 2. Call the native module
             await DriveCam.startRecording({
                 maxDurationMs: 60000,
                 maxSizeMB: 100,
@@ -39,9 +40,6 @@ export const CamUtils = {
         }
     },
 
-    /**
-     * Safe wrapper for stopping recording
-     */
     async stopRecording() {
         try {
             await DriveCam.stopRecording();
@@ -52,9 +50,6 @@ export const CamUtils = {
         }
     },
 
-    /**
-     * Toggle camera direction
-     */
     async flipCamera() {
         try {
             await DriveCam.flipCamera();
@@ -75,3 +70,12 @@ export const CamUtils = {
         }
     }
 };
+
+//   useEffect(() => {
+//     const subscription = driveCamEmitter.addListener('onRecordingEvent', (event) => {
+//       event.type, event.data
+//     });
+//     return () => subscription.remove();
+//   }, []);
+
+// <DriveCamView style={{ flex: 1 }} previewEnabled={true} />

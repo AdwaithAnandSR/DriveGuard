@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Host, Icon } from "@expo/ui";
 import { router } from "expo-router";
@@ -6,9 +6,18 @@ import Settings from "@expo/material-symbols/settings.xml";
 
 import CamView from "../components/CamView.tsx";
 import { useStore } from "../utils/store.ts";
+import { CamUtils, CameraView } from "../utils/camera.ts";
+
+
 
 export default function App() {
     const fullview = useStore(state => state.fullview);
+
+    useEffect(() => {
+        (async () => {
+            await console.log(CamUtils.startRecording());
+        })();
+    }, []);
 
     return (
         <View style={styles.container}>
@@ -22,22 +31,32 @@ export default function App() {
                     }}
                 >
                     <Text style={styles.header}>Drive Guard</Text>
-                    <Host
-                        matchContents
-                    >
+                    <Host matchContents>
                         <Icon
-                        onPress={() => router.push("/Settings")}
-                        name={Settings} size={30} color={"white"} />
+                            onPress={() => router.push("/Settings")}
+                            name={Settings}
+                            size={30}
+                            color={"white"}
+                        />
                     </Host>
                 </View>
             )}
-
+            <CameraView
+                style={[
+                    styles.camera,
+                    {
+                        height: fullview ? "100%" : "85%",
+                        borderColor: "green",
+                        borderWidth: 2
+                    }
+                ]}
+                previewEnabled={true}
+            />
         </View>
     );
 }
-            // <CamView />
+// <CamView />
 
-            
 const styles = StyleSheet.create({
     container: {
         flex: 1,

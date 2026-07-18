@@ -4,7 +4,7 @@ import { FlashList, ListRenderItem } from "@shopify/flash-list";
 
 import { list, deleteSelected } from "../utils/file.ts";
 import RenderItem, { VideoItem } from "../components/GalleryItem.tsx";
-import { CamUtils } from "../utils/camera.ts";
+
 
 const Gallery = ({ fullview, toggleFullView }) => {
     const [files, setFiles] = useState<VideoItem[]>(list() ?? []);
@@ -45,11 +45,6 @@ const Gallery = ({ fullview, toggleFullView }) => {
 
     const keyExtractor = (item: VideoItem) => item.uri;
 
-    useEffect(() => {
-        (async () => {
-            await console.log(CamUtils.startRecording());
-        })();
-    }, []);
 
     return (
         <View style={styles.container}>

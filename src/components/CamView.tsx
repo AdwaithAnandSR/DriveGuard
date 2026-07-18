@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { Button, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import {
-    CameraView,
+    
     CameraType,
     useCameraPermissions,
     useMicrophonePermissions,
@@ -18,6 +18,7 @@ import Options from "./CamOptions.tsx";
 
 import saveToFilesystem from "../utils/saveToFilesystem.ts";
 import { useStore } from "../utils/store.ts";
+import { CameraView } from "../utils/camera.ts";
 
 const CamView = () => {
     const [facing, setFacing] = useState<CameraType>("back");
@@ -95,18 +96,24 @@ const CamView = () => {
                     </TouchableOpacity>
                 </View>
             ) : isFocused ? (
-                <CameraView
-                    ref={cameraRef}
-                    style={[
+
+                    // ref={cameraRef}
+                    // style={[
+                    //     styles.camera,
+                    //     { height: fullview ? "100%" : "85%" }
+                    // ]}
+                    // facing={facing}
+                    // mode="video"
+                    // mute={isMuted}
+                    // videoQuality={videoQuality}
+                    // onCameraReady={fetch}
+
+                <CameraView style={[
                         styles.camera,
                         { height: fullview ? "100%" : "85%" }
                     ]}
-                    facing={facing}
-                    mode="video"
-                    mute={isMuted}
-                    videoQuality={videoQuality}
-                    onCameraReady={fetch}
-                />
+                    previewEnabled={true} />
+                
             ) : (
                 <View
                     style={[
