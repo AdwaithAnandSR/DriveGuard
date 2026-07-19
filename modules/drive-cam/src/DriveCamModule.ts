@@ -1,8 +1,24 @@
-import { requireNativeModule, EventEmitter } from "expo-modules-core";
-import { CameraConfig } from "./DriveCam.types";
+import { requireNativeModule, Subscription } from "expo-modules-core";
+import { CameraConfig, SavedVideoFile } from "./DriveCam.types";
 
+// 1. Get the module
 const DriveCamModule = requireNativeModule("DriveCam");
-const emitter = new EventEmitter(DriveCamModule);
+
+export function startPreview(): boolean {
+    return DriveCamModule.startPreview();
+}
+
+export function shutdownCamera(): boolean {
+    return DriveCamModule.shutdownCamera();
+}
+
+export function getSavedVideoFiles(): SavedVideoFile[] {
+    return DriveCamModule.getSavedVideoFiles();
+}
+
+export function deleteVideoFile(filePath: string): boolean {
+    return DriveCamModule.deleteVideoFile(filePath);
+}
 
 export function startRecording(config: CameraConfig): boolean {
     return DriveCamModule.startRecording(config);
@@ -28,8 +44,11 @@ export function flipCamera(): boolean {
     return DriveCamModule.flipCamera();
 }
 
-export function addRecordingEventListener(listener: (event: any) => void) {
-    return emitter.addListener("onRecordingEvent", listener);
+// 2. Direct listener attachment (Modern Expo API)
+export function addRecordingEventListener(
+    listener: (event: any) => void
+): Subscription {
+    return DriveCamModule.addListener("onRecordingEvent", listener);
 }
 
 export default DriveCamModule;

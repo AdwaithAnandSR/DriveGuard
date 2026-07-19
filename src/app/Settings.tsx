@@ -6,13 +6,13 @@ import { Host } from "@expo/ui";
 import { useStore } from "../utils/store";
 
 const STORAGE_LIMITS = {
-    "100": 100 * 1024 * 1024,
-    "250": 250 * 1024 * 1024,
-    "500": 500 * 1024 * 1024,
-    "1g": 1024 * 1024 * 1024,
-    "3g": 3 * 1024 * 1024 * 1024,
-    "5g": 5 * 1024 * 1024 * 1024,
-    "10g": 10 * 1024 * 1024 * 1024
+    "100": 100,
+    "250": 250,
+    "500": 500,
+    "1g": 1024,
+    "3g": 3072,
+    "5g": 5120,
+    "10g": 10240
 } as const;
 
 const QUALITY_OPTIONS = [
@@ -42,18 +42,18 @@ export default function SettingsScreen() {
     const {
         autoDelete,
         videoQuality,
-        limitBytes,
+        maxStorageUsageMB,
         setAutoDelete,
-        setLimitBytes,
+        setMaxStorageUsageMB,
         setVideoQuality,
         limitDuration,
         setLimitDuration
     } = useStore();
 
     const storageLabel =
-        limitBytes >= 1024 * 1024 * 1024
-            ? `${limitBytes / 1024 / 1024 / 1024} GB`
-            : `${limitBytes / 1024 / 1024} MB`;
+        maxStorageUsageMB >= 1024
+            ? `${maxStorageUsageMB / 1024} GB`
+            : `${maxStorageUsageMB} MB`;
 
     return (
         <SafeAreaView style={styles.container}>
@@ -97,7 +97,7 @@ export default function SettingsScreen() {
                         { id: "10g", title: "10 GB" }
                     ]}
                     onPressAction={({ nativeEvent }) => {
-                        setLimitBytes(
+                        setMaxStorageUsageMB(
                             STORAGE_LIMITS[
                                 nativeEvent.event as keyof typeof STORAGE_LIMITS
                             ]
