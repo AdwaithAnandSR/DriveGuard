@@ -17,8 +17,9 @@ export default function App() {
 
     const requested = useRef(false);
 
+    // index.tsx — drop the showPreview gate, start whenever permission is granted
     useEffect(() => {
-        if (!showPreview || !camPermission) return;
+        if (!camPermission) return;
 
         const fun = async () => {
             if (camPermission.granted) {
@@ -26,21 +27,11 @@ export default function App() {
             } else if (camPermission.canAskAgain) {
                 await requestCamPermission();
             } else {
-                Alert.alert(
-                    "Camera permission required",
-                    "Please enable Camera and Microphone permissions in Settings.",
-                    [
-                        { text: "Cancel", style: "cancel" },
-                        {
-                            text: "Open Settings",
-                            onPress: () => Linking.openSettings()
-                        }
-                    ]
-                );
+                Alert.alert(/* ...unchanged... */);
             }
         };
         fun();
-    }, [showPreview, camPermission]);
+    }, [camPermission]); // showPreview removed from deps
 
     if (!camPermission)
         return <View style={[styles.camera, { height: "100%" }]} />;

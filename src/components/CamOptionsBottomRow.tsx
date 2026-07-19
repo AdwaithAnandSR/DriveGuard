@@ -30,6 +30,7 @@ export default function BottomRow() {
         } else {
             const res = await CamUtils.startRecording({});
             if (res.success) {
+            console.log(res)
                 setRecording(true); // Only set true if start was successful
             } else {
                 alert("Could not start recording");

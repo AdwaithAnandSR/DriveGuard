@@ -54,7 +54,7 @@ export const useStore = create<SettingsState>()(
                 set({ maxStorageUsageMB }),
             setMaxVideoSizeInMB: maxVideoSizeInMB => set({ maxVideoSizeInMB }),
             setLimitDuration: limitDuration => set({ limitDuration }),
-            setRecording: isRocorging => set({ isRocorging }),
+            setRecording: isRecording => set({ isRecording }),
             setPaused: paused => set({ paused }),
             setAutoDelete: autoDelete => set({ autoDelete }),
             setAutoOptimize: autoOptimize => set({ autoOptimize }),
