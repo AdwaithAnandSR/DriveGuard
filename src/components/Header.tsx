@@ -5,9 +5,12 @@ import Settings from "@expo/material-symbols/settings.xml";
 
 import { useStore } from "../utils/store.ts";
 
+const handleRoute = () => {
+    router.push("/Settings");
+};
+
 export default function Header() {
     const fullview = useStore(state => state.fullview);
-
     if (fullview) return null;
 
     return (
@@ -22,7 +25,7 @@ export default function Header() {
             <Text style={styles.header}>Drive Guard</Text>
             <Host matchContents>
                 <Icon
-                    onPress={() => router.push("/Settings")}
+                    onPress={handleRoute}
                     name={Settings}
                     size={30}
                     color={"white"}
@@ -41,4 +44,3 @@ const styles = StyleSheet.create({
         color: "white"
     }
 });
-

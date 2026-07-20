@@ -92,7 +92,6 @@ export const useStore = create<SettingsState>()(
                 limitDuration: state.limitDuration,
                 autoDelete: state.autoDelete,
                 autoOptimize: state.autoOptimize,
-                lensFacing: state.lensFacing,
                 showPreview: state.showPreview
             })
         }

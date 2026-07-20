@@ -39,7 +39,7 @@ export const CamUtils = {
                 maxStorageUsageMB,
                 autoDelete,
                 autoOptimize,
-                lensFacing: "back",
+                lensFacing,
                 quality: videoQuality,
                 ...config // Allow overrides
             });
@@ -145,12 +145,3 @@ export const CamUtils = {
         }
     }
 };
-
-//   useEffect(() => {
-//     const subscription = driveCamEmitter.addListener('onRecordingEvent', (event) => {
-//       event.type, event.data
-//     });
-//     return () => subscription.remove();
-//   }, []);
-
-// <DriveCamView style={{ flex: 1 }} previewEnabled={true} />

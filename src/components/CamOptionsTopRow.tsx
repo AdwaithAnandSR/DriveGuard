@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
 import { Host, Icon } from "@expo/ui";
-import { useMicrophonePermissions } from "expo-camera";
 
 import FitScreen from "@expo/material-symbols/fit_screen.xml";
 import MicOff from "@expo/material-symbols/mic_off.xml";
@@ -11,6 +10,8 @@ import PreviewOff from "@expo/material-symbols/visibility_off.xml";
 import { useStore } from "../utils/store.ts";
 import { CamUtils } from "../utils/camera.ts";
 
+const QUALITIES = ["2160p", "1080p", "720p", "480p"];
+
 export default function TopRow() {
     const fullview = useStore(state => state.fullview);
     const toggleFullview = useStore(state => state.toggleFullview);
@@ -18,12 +19,10 @@ export default function TopRow() {
     const setVideoQuality = useStore(state => state.setVideoQuality);
     const isMuted = useStore(state => state.isMuted);
     const toggleMuted = useStore(state => state.toggleMuted);
-    const isRecording = useStore(state => state.isRecording);
     const showPreview = useStore(state => state.showPreview);
     const toggleShowPreview = useStore(state => state.toggleShowPreview);
 
     const [showQuality, setShowQuality] = useState(false);
-    const [micPermission, requestMicPermission] = useMicrophonePermissions();
 
     const toggleShowQualityOptions = () => setShowQuality(p => !p);
 
@@ -89,7 +88,7 @@ export default function TopRow() {
                                 gap: 6
                             }}
                         >
-                            {["2160", "1080", "720", "480"].map(i => (
+                            {QUALITIES.map(i => (
                                 <TouchableOpacity
                                     key={i}
                                     onPress={() => setQuality(i + "p")}

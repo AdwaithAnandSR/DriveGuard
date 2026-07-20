@@ -1,8 +1,8 @@
 import { SafeAreaView } from "react-native-safe-area-context";
-import { View, Text, StyleSheet, Switch, Pressable } from "react-native";
+import { Text, StyleSheet, Switch, ScrollView, Pressable } from "react-native";
 import { MenuView } from "@expo/ui/community/menu";
-import { Host } from "@expo/ui";
 
+import SettingRow from "../components/SettingsRow";
 import { useStore } from "../utils/store";
 
 const STORAGE_LIMITS = {
@@ -31,203 +31,155 @@ const DURATION_OPTIONS = [
     { id: "60", title: "60 min" }
 ];
 
-const QUALITY_MAP = {
-    "2160p": "2160p",
-    "1080p": "1080p",
-    "720p": "720p",
-    "480p": "480p"
-} as const;
+const STORAGE_OPTIONS = [
+    { id: "100", title: "100 MB" },
+    { id: "250", title: "250 MB" },
+    { id: "500", title: "500 MB" },
+    { id: "1g", title: "1 GB" },
+    { id: "3g", title: "3 GB" },
+    { id: "5g", title: "5 GB" },
+    { id: "10g", title: "10 GB" }
+];
 
 export default function SettingsScreen() {
-    const {
-        autoDelete,
-        setAutoDelete,
-        videoQuality,
-        setVideoQuality,
-        maxStorageUsageMB,
-        setMaxStorageUsageMB,
-        maxVideoSizeInMB,
-        setMaxVideoSizeInMB,
-        limitDuration,
-        setLimitDuration
-    } = useStore();
+    const autoDelete = useStore(state => state.autoDelete);
+    const setAutoDelete = useStore(state => state.setAutoDelete);
+
+    const autoOptimize = useStore(state => state.autoOptimize);
+    const setAutoOptimize = useStore(state => state.setAutoOptimize);
+
+    const videoQuality = useStore(state => state.videoQuality);
+    const setVideoQuality = useStore(state => state.setVideoQuality);
+
+    const maxStorageUsageMB = useStore(state => state.maxStorageUsageMB);
+    const setMaxStorageUsageMB = useStore(state => state.setMaxStorageUsageMB);
+
+    const maxVideoSizeInMB = useStore(state => state.maxVideoSizeInMB);
+    const setMaxVideoSizeInMB = useStore(state => state.setMaxVideoSizeInMB);
+
+    const limitDuration = useStore(state => state.limitDuration);
+    const setLimitDuration = useStore(state => state.setLimitDuration);
 
     const storageLabel =
         maxStorageUsageMB >= 1024
             ? `${maxStorageUsageMB / 1024} GB`
             : `${maxStorageUsageMB} MB`;
 
-    const storageLabel_2 =
+    const videoLimitLabel =
         maxVideoSizeInMB >= 1024
             ? `${maxVideoSizeInMB / 1024} GB`
             : `${maxVideoSizeInMB} MB`;
 
     return (
-        <SafeAreaView style={styles.container}>
+        <ScrollView style={styles.container}>
             <Text style={styles.title}>Settings</Text>
 
-            {/* Auto Delete */}
-            <View style={styles.item}>
-                <View style={styles.left}>
-                    <View style={styles.textContainer}>
-                        <Text style={styles.label}>Auto Delete</Text>
+            <SettingRow
+                title="Auto Delete"
+                description="Automatically delete older videos when the storage limit is exceeded."
+                right={
+                    <Switch value={autoDelete} onValueChange={setAutoDelete} />
+                }
+            />
 
-                        <Text adjustsFontSizeToFit style={styles.description}>
-                            Automatically delete older videos when the storage
-                            limit is exceeded.
-                        </Text>
-                    </View>
-                </View>
+            <SettingRow
+                title="Auto Optimize"
+                description="When enabled, the dashcam automatically lowers video quality if your device temperature exceeds 40°C to prevent overheating and system shutdowns."
+                right={
+                    <Switch
+                        value={autoOptimize}
+                        onValueChange={setAutoOptimize}
+                    />
+                }
+            />
 
-                <Switch value={autoDelete} onValueChange={setAutoDelete} />
-            </View>
+            <SettingRow
+                title="Storage Limit"
+                description="Maximum storage used by recordings."
+                right={
+                    <MenuView
+                        actions={STORAGE_OPTIONS}
+                        onPressAction={({ nativeEvent }) =>
+                            setMaxStorageUsageMB(
+                                STORAGE_LIMITS[
+                                    nativeEvent.event as keyof typeof STORAGE_LIMITS
+                                ]
+                            )
+                        }
+                    >
+                        <Pressable style={styles.right}>
+                            <Text style={styles.value}>{storageLabel}</Text>
+                        </Pressable>
+                    </MenuView>
+                }
+            />
 
-            {/* Auto Optimize */}
-            <View style={styles.item}>
-                <View style={styles.left}>
-                    <View style={styles.textContainer}>
-                        <Text style={styles.label}>Auto Optimize</Text>
+            <SettingRow
+                title="Video Limit"
+                description="Maximum storage used by one video."
+                right={
+                    <MenuView
+                        actions={STORAGE_OPTIONS}
+                        onPressAction={({ nativeEvent }) =>
+                            setMaxVideoSizeInMB(
+                                STORAGE_LIMITS[
+                                    nativeEvent.event as keyof typeof STORAGE_LIMITS
+                                ]
+                            )
+                        }
+                    >
+                        <Pressable style={styles.right}>
+                            <Text style={styles.value}>{videoLimitLabel}</Text>
+                        </Pressable>
+                    </MenuView>
+                }
+            />
 
-                        <Text adjustsFontSizeToFit style={styles.description}>
-                            When enabled, the dashcam automatically lowers video
-                            quality if your device temperature exceeds 40°C to
-                            prevent overheating and system shutdowns
-                        </Text>
-                    </View>
-                </View>
+            <SettingRow
+                title="Duration Limit"
+                description="Maximum duration used by recordings."
+                right={
+                    <MenuView
+                        actions={DURATION_OPTIONS}
+                        onPressAction={({ nativeEvent }) =>
+                            setLimitDuration(Number(nativeEvent.event))
+                        }
+                    >
+                        <Pressable style={styles.right}>
+                            <Text style={styles.value}>
+                                {limitDuration} min
+                            </Text>
+                        </Pressable>
+                    </MenuView>
+                }
+            />
 
-                <Switch value={autoDelete} onValueChange={setAutoDelete} />
-            </View>
-
-            {/* Storage Limit */}
-            <View style={styles.item}>
-                <View style={styles.left}>
-                    <View style={styles.textContainer}>
-                        <Text style={styles.label}>Storage Limit</Text>
-                        <Text style={styles.description}>
-                            Maximum storage used by recordings.
-                        </Text>
-                    </View>
-                </View>
-
-                <MenuView
-                    actions={[
-                        { id: "100", title: "100 MB" },
-                        { id: "250", title: "250 MB" },
-                        { id: "500", title: "500 MB" },
-                        { id: "1g", title: "1 GB" },
-                        { id: "3g", title: "3 GB" },
-                        { id: "5g", title: "5 GB" },
-                        { id: "10g", title: "10 GB" }
-                    ]}
-                    onPressAction={({ nativeEvent }) => {
-                        setMaxStorageUsageMB(
-                            STORAGE_LIMITS[
-                                nativeEvent.event as keyof typeof STORAGE_LIMITS
-                            ]
-                        );
-                    }}
-                >
-                    <Pressable style={styles.right}>
-                        <Text style={styles.value}>{storageLabel}</Text>
-                    </Pressable>
-                </MenuView>
-            </View>
-
-            {/* Video Limit */}
-            <View style={styles.item}>
-                <View style={styles.left}>
-                    <View style={styles.textContainer}>
-                        <Text style={styles.label}>Video Limit</Text>
-                        <Text style={styles.description}>
-                            Maximum storage used by one video.
-                        </Text>
-                    </View>
-                </View>
-
-                <MenuView
-                    actions={[
-                        { id: "100", title: "100 MB" },
-                        { id: "250", title: "250 MB" },
-                        { id: "500", title: "500 MB" },
-                        { id: "1g", title: "1 GB" },
-                        { id: "3g", title: "3 GB" },
-                        { id: "5g", title: "5 GB" },
-                        { id: "10g", title: "10 GB" }
-                    ]}
-                    onPressAction={({ nativeEvent }) => {
-                        setMaxVideoSizeInMB(
-                            STORAGE_LIMITS[
-                                nativeEvent.event as keyof typeof STORAGE_LIMITS
-                            ]
-                        );
-                    }}
-                >
-                    <Pressable style={styles.right}>
-                        <Text style={styles.value}>{storageLabel_2}</Text>
-                    </Pressable>
-                </MenuView>
-            </View>
-
-            {/* Duration Limit */}
-            <View style={styles.item}>
-                <View style={styles.left}>
-                    <View style={styles.textContainer}>
-                        <Text style={styles.label}>Duration Limit</Text>
-                        <Text style={styles.description}>
-                            Maximum duration used by recordings.
-                        </Text>
-                    </View>
-                </View>
-
-                <MenuView
-                    actions={DURATION_OPTIONS}
-                    onPressAction={({ nativeEvent }) =>
-                        setLimitDuration(Number(nativeEvent.event))
-                    }
-                >
-                    <Pressable style={styles.right}>
-                        <Text style={styles.value}>{limitDuration} min</Text>
-                    </Pressable>
-                </MenuView>
-            </View>
-
-            {/* Video Quality */}
-            <View style={styles.item}>
-                <View style={styles.left}>
-                    <View style={styles.textContainer}>
-                        <Text style={styles.label}>Video Quality</Text>
-
-                        <Text style={styles.description}>
-                            Higher quality uses more storage.
-                        </Text>
-                    </View>
-                </View>
-
-                <MenuView
-                    actions={QUALITY_OPTIONS}
-                    onPressAction={({ nativeEvent }) => {
-                        setVideoQuality(
-                            QUALITY_MAP[
-                                nativeEvent.event as keyof typeof QUALITY_MAP
-                            ]
-                        );
-                    }}
-                >
-                    <Pressable style={styles.right}>
-                        <Text style={styles.value}>{videoQuality}</Text>
-                    </Pressable>
-                </MenuView>
-            </View>
-        </SafeAreaView>
+            <SettingRow
+                title="Video Quality"
+                description="Higher quality uses more storage."
+                right={
+                    <MenuView
+                        actions={QUALITY_OPTIONS}
+                        onPressAction={({ nativeEvent }) =>
+                            setVideoQuality(nativeEvent.event as VideoQuality)
+                        }
+                    >
+                        <Pressable style={styles.right}>
+                            <Text style={styles.value}>{videoQuality}</Text>
+                        </Pressable>
+                    </MenuView>
+                }
+            />
+        </ScrollView>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
-        flex: 1,
+        flexGrow: 1,
         backgroundColor: "#000",
-        paddingHorizontal: 18
+        paddingHorizontal: 18,
+        paddingTop: 30
     },
     title: {
         color: "#fff",
@@ -235,40 +187,11 @@ const styles = StyleSheet.create({
         fontWeight: "700",
         marginVertical: 20
     },
-    item: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        backgroundColor: "#121212",
-        borderRadius: 16,
-        padding: 10,
-        marginBottom: 12,
-        height: 80
-    },
-    left: {
-        flex: 1,
-        paddingRight: 16
-    },
-    textContainer: {
-        flex: 1,
-        marginLeft: 14,
-        justifyContent: "center"
-    },
-    label: {
-        color: "#fff",
-        fontSize: 15,
-        fontWeight: "600"
-    },
-    description: {
-        color: "#8d8d8d",
-        fontSize: 12
-    },
     right: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "flex-end"
     },
-
     value: {
         color: "#fff",
         fontSize: 15,

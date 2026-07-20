@@ -102,9 +102,19 @@ class CameraForegroundService : LifecycleService() {
                     autoDelete = intent.getBooleanExtra("autoDelete", true)
                     autoOptimize = intent.getBooleanExtra("autoOptimize", false)
 
-                    val requestedLensStr = intent.getStringExtra("lensFacing") ?: "back"
-                    val requestedLens = if (requestedLensStr == "front") CameraSelector.LENS_FACING_FRONT else CameraSelector.LENS_FACING_BACK
-                    val newQuality = getQualityFromString(intent.getStringExtra("quality"))
+                    val requestedLensStr = intent.getStringExtra("lensFacing")
+                    val requestedLens = if (requestedLensStr != null) {
+                        if (requestedLensStr == "front") CameraSelector.LENS_FACING_FRONT else CameraSelector.LENS_FACING_BACK
+                    } else {
+                        lensFacing
+                    }
+
+                    val requestedQualityStr = intent.getStringExtra("quality")
+                    val newQuality = if (requestedQualityStr != null) {
+                        getQualityFromString(requestedQualityStr)
+                    } else {
+                        currentQuality
+                    }
 
                     val qualityChanged = newQuality != currentQuality
                     val lensChanged = requestedLens != lensFacing
@@ -305,19 +315,20 @@ class CameraForegroundService : LifecycleService() {
 
             var pendingRecording = videoCap.output.prepareRecording(this, outputOptions)
 
-            if (!isMuted) {
-                if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                    try {
-                        pendingRecording = pendingRecording.withAudioEnabled()
-                    } catch (e: Exception) {
-                        emitEvent("WARNING", mapOf("message" to "Failed to initialize audio source, recording video only"))
-                    }
-                } else {
-                    emitEvent("WARNING", mapOf("message" to "Audio permission missing, recording without audio"))
+            // 1. ALWAYS attach the audio stream if we have permission, regardless of the isMuted state.
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                try {
+                    pendingRecording = pendingRecording.withAudioEnabled()
+                } catch (e: Exception) {
+                    emitEvent("WARNING", mapOf("message" to "Failed to initialize audio source, recording video only"))
                 }
+            } else {
+                emitEvent("WARNING", mapOf("message" to "Audio permission missing, recording without audio"))
             }
 
             emitDebug("Initiating new file segment: ${file.name}")
+
+            // 2. Start the recording (Corrected to only happen ONCE)
             activeRecording = pendingRecording.start(ContextCompat.getMainExecutor(this)) {
                 recordEvent ->
                 when (recordEvent) {
@@ -369,6 +380,10 @@ class CameraForegroundService : LifecycleService() {
                     }
                 }
             }
+
+            // 3. IMMEDIATELY apply the current mute state to the newly created recording
+            activeRecording?.mute(isMuted)
+
         } catch (e: Exception) {
             emitError("Exception while starting recording segment", e)
             activeRecording = null

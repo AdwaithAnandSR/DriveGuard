@@ -8,13 +8,19 @@ import RenderItem, { VideoItem } from "../components/GalleryItem.tsx";
 
 const getFiles = CamUtils.getFiles;
 
+const ListEmptyComponent = () => (
+    <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>No videos found</Text>
+    </View>
+);
+
 const Gallery = ({ fullview, toggleFullView }) => {
     const files = useStore(state => state.files);
     const setFiles = useStore(state => state.setFiles);
     const deleteFile = useStore(state => state.deleteFile);
 
-    const [isSelecting, setSelecting] = useState(false);
     const [multiSelectList, setMultiSelectList] = useState<string[]>([]);
+    const isSelecting = multiSelectList.length > 0;
 
     const toggleSelectItem = (uri: string) => {
         setMultiSelectList(prev => {
@@ -23,21 +29,29 @@ const Gallery = ({ fullview, toggleFullView }) => {
                 ? prev.filter(item => item !== uri)
                 : [...prev, uri];
 
-            setSelecting(updated.length > 0);
             return updated;
         });
     };
 
     const onDelete = async () => {
-        for (const path of multiSelectList) {
-            await CamUtils.deleteFile(path);
-            deleteFile(path);
-        }
+        await Promise.all(
+            multiSelectList.map(async path => {
+                await CamUtils.deleteFile(path);
+                deleteFile(path);
+            })
+        );
 
         setMultiSelectList([]);
-        setSelecting(false);
     };
     const selectedSet = new Set(multiSelectList);
+
+    const keyExtractor = (item: VideoItem) => item.path;
+
+    useEffect(() => {
+        (async () => {
+            setFiles(await CamUtils.getFiles());
+        })();
+    }, []);
 
     const renderItem: ListRenderItem<VideoItem> = ({ item }) => (
         <RenderItem
@@ -47,14 +61,6 @@ const Gallery = ({ fullview, toggleFullView }) => {
             isSelected={selectedSet.has(item.path)}
         />
     );
-
-    const keyExtractor = (item: VideoItem) => item.uri;
-
-    useEffect(() => {
-        (async () => {
-            setFiles(await CamUtils.getFiles());
-        })();
-    }, []);
 
     return (
         <View style={styles.container}>
@@ -71,12 +77,9 @@ const Gallery = ({ fullview, toggleFullView }) => {
                 keyExtractor={keyExtractor}
                 renderItem={renderItem}
                 estimatedItemSize={130}
-                ListEmptyComponent={() => (
-                    <View style={styles.emptyContainer}>
-                        <Text style={styles.emptyText}>No videos found</Text>
-                    </View>
-                )}
+                ListEmptyComponent={ListEmptyComponent}
                 contentContainerStyle={{ paddingTop: 40 }}
+                drawDistance={300}
             />
         </View>
     );

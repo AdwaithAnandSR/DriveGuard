@@ -19,8 +19,8 @@ export default function BottomRow() {
     const toggleLensFacing = useStore(state => state.toggleLensFacing);
 
     const toggleCameraFacing = async () => {
-        toggleLensFacing();
         await CamUtils.flipCamera();
+        toggleLensFacing();
     };
 
     const toggleRecord = async () => {
@@ -28,11 +28,11 @@ export default function BottomRow() {
             await CamUtils.stopRecording();
             setRecording(false); // Only set false if stop was successful
         } else {
-            const res = await CamUtils.startRecording({});
+            const res = await CamUtils.startRecording();
             if (res.success) {
                 setRecording(true); // Only set true if start was successful
             } else {
-                alert("Could not start recording");
+                Alert.alert("Could not start recording");
             }
         }
     };

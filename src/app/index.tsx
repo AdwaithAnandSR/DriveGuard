@@ -1,47 +1,46 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { StyleSheet, View, Alert, TouchableOpacity, Text } from "react-native";
 import { useCameraPermissions, useMicrophonePermissions } from "expo-camera";
 import * as Linking from "expo-linking";
-import { router, useIsFocused } from "expo-router";
+import { useIsFocused } from "expo-router";
 
 import Header from "../components/Header.tsx";
 import CameraOptions from "../components/CameraOptions.tsx";
 
 import { useStore } from "../utils/store.ts";
-import { CameraView, CamUtils, DriveCam } from "../utils/camera.ts";
+import { CameraView, CamUtils } from "../utils/camera.ts";
 
 export default function App() {
-    const fullview = useStore(state => state.fullview);
     const showPreview = useStore(state => state.showPreview);
     const [camPermission, requestCamPermission] = useCameraPermissions();
     const [micPermission, requestMicPermission] = useMicrophonePermissions();
 
-    const requested = useRef(false);
     const isFocused = useIsFocused();
 
     useEffect(() => {
         if (!camPermission) return;
 
-        const fun = async () => {
-            if (camPermission.granted) {
-                CamUtils.startPreview();
-            } else if (camPermission.canAskAgain) {
-                await reqPermissions();
-            } else {
-                Alert.alert(
-                    "Camera permission required",
-                    "Please enable Camera and Microphone permissions in Settings.",
-                    [
-                        { text: "Cancel", style: "cancel" },
-                        {
-                            text: "Open Settings",
-                            onPress: Linking.openSettings()
-                        }
-                    ]
-                );
-            }
-        };
-        fun();
+        if (camPermission.granted) {
+            CamUtils.startPreview();
+            return;
+        }
+
+        if (camPermission.canAskAgain) {
+            reqPermissions();
+            return;
+        }
+
+        Alert.alert(
+            "Camera permission required",
+            "Please enable Camera and Microphone permissions in Settings.",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Open Settings",
+                    onPress: () => Linking.openSettings()
+                }
+            ]
+        );
     }, [camPermission]);
 
     if (!camPermission)
