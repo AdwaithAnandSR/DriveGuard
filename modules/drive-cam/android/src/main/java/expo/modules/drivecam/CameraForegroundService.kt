@@ -11,6 +11,7 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.BatteryManager
 import android.os.Build
+import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
@@ -20,7 +21,6 @@ import androidx.camera.video.*
 import androidx.camera.video.VideoCapture
 import androidx.core.content.ContextCompat
 import java.io.File
-import java.io.RandomAccessFile
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.ExecutorService
@@ -62,6 +62,7 @@ class CameraForegroundService : LifecycleService() {
 
     private lateinit var cameraExecutor: ExecutorService
     private lateinit var metricsExecutor: ScheduledExecutorService
+    private var wakeLock: PowerManager.WakeLock? = null
 
     private var isMuted = false
     private val savedFiles = Collections.synchronizedList(mutableListOf<File>())
@@ -74,6 +75,7 @@ class CameraForegroundService : LifecycleService() {
         cameraExecutor = Executors.newSingleThreadExecutor()
         metricsExecutor = Executors.newSingleThreadScheduledExecutor()
 
+        loadExistingFilesFromDisk()
         createNotificationChannel()
         startForeground(1, createNotification("Camera on Standby", "Preview active..."))
         startSystemMetricsPolling()
@@ -108,11 +110,11 @@ class CameraForegroundService : LifecycleService() {
                     val lensChanged = requestedLens != lensFacing
 
                     userRequestedQuality = newQuality
-
                     isIntentionalRecording = true
+
+                    acquireWakeLock()
                     updateNotification("Dashcam Active", "Recording in background...")
 
-                    // Safety Gate: If a recording session is already running
                     if (activeRecording != null) {
                         if (qualityChanged || lensChanged) {
                             emitDebug("Stopping existing active recording session to apply new settings")
@@ -126,14 +128,13 @@ class CameraForegroundService : LifecycleService() {
                         return START_STICKY
                     }
 
-                    // Update state FIRST before registering receiver to avoid sticky broadcast triggers
                     currentQuality = newQuality
                     lensFacing = requestedLens
 
                     if (autoOptimize) registerThermalBatteryReceiver()
 
                     if (videoCapture == null || previewUseCase == null || qualityChanged || lensChanged) {
-                        if (qualityChanged) videoCapture = null // Force recorder to apply new quality
+                        if (qualityChanged) videoCapture = null
                         startCamera(startRecording = true)
                     } else {
                         startNewRecordingSegment()
@@ -151,6 +152,7 @@ class CameraForegroundService : LifecycleService() {
                 } catch (e: Exception) {
                     emitError("Error stopping active recording", e)
                 }
+                releaseWakeLock()
                 updateNotification("Camera on Standby", "Preview active...")
             }
             ACTION_SHUTDOWN -> {
@@ -163,6 +165,69 @@ class CameraForegroundService : LifecycleService() {
         return START_STICKY
     }
 
+    private fun loadExistingFilesFromDisk() {
+        try {
+            val dir = getExternalFilesDir(null)
+            val files = dir?.listFiles {
+                _, name -> name.endsWith(".mp4")
+            } ?: emptyArray()
+            synchronized(savedFiles) {
+                savedFiles.clear()
+                savedFiles.addAll(files.sortedBy {
+                    it.lastModified()
+                }) // Oldest first
+            }
+            manageStorageLoop() // Pre-clean on boot
+        } catch (e: Exception) {
+            emitError("Failed to load existing files", e)
+        }
+    }
+
+    private fun acquireWakeLock() {
+        if (wakeLock == null) {
+            val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+            wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DriveCam::RecordWakeLock")
+        }
+        if (wakeLock?.isHeld == false) {
+            wakeLock?.acquire(12 * 60 * 60 * 1000L) // Safety timeout: 12 hours
+            emitDebug("WakeLock acquired")
+        }
+    }
+
+    private fun releaseWakeLock() {
+        if (wakeLock?.isHeld == true) {
+            wakeLock?.release()
+            emitDebug("WakeLock released")
+        }
+    }
+
+    private fun getSafeQuality(cameraProvider: ProcessCameraProvider, cameraSelector: CameraSelector, requestedQuality: Quality): Quality {
+        try {
+            val camera = cameraProvider.availableCameraInfos.firstOrNull {
+                it.lensFacing == lensFacing
+            } ?: return Quality.HIGHEST
+
+            val supportedQualities = QualitySelector.getSupportedQualities(camera)
+
+            if (supportedQualities.contains(requestedQuality)) {
+                return requestedQuality
+            }
+
+            val fallbacks = listOf(Quality.UHD, Quality.FHD, Quality.HD, Quality.SD, Quality.LOWEST)
+            for (fallback in fallbacks) {
+                if (supportedQualities.contains(fallback)) {
+                    if (requestedQuality != fallback) {
+                        emitEvent("WARNING", mapOf("message" to "Requested quality not supported on this device. Automatically falling back to a supported resolution."))
+                    }
+                    return fallback
+                }
+            }
+        } catch (e: Exception) {
+            emitError("Failed to query supported camera qualities", e)
+        }
+        return Quality.HIGHEST
+    }
+
     private fun startCamera(startRecording: Boolean) {
         emitDebug("Binding camera provider, startRecording=$startRecording")
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
@@ -170,8 +235,16 @@ class CameraForegroundService : LifecycleService() {
         cameraProviderFuture.addListener({
             try {
                 val cameraProvider = cameraProviderFuture.get()
+                val cameraSelector = CameraSelector.Builder()
+                .requireLensFacing(lensFacing)
+                .build()
 
-                // Persistently build use-cases so SurfaceProvider never disconnects
+                val safeQuality = getSafeQuality(cameraProvider, cameraSelector, currentQuality)
+                if (safeQuality != currentQuality) {
+                    currentQuality = safeQuality
+                    videoCapture = null
+                }
+
                 if (previewUseCase == null) {
                     previewUseCase = Preview.Builder().build()
                 }
@@ -183,17 +256,10 @@ class CameraForegroundService : LifecycleService() {
                     videoCapture = VideoCapture.withOutput(recorder)
                 }
 
-                val cameraSelector = CameraSelector.Builder()
-                .requireLensFacing(lensFacing)
-                .build()
-
                 cameraProvider.unbindAll()
                 cameraProvider.bindToLifecycle(this, cameraSelector, videoCapture!!, previewUseCase!!)
-                emitDebug("Camera bound successfully to lifecycle")
+                emitDebug("Camera bound successfully to lifecycle (Quality: $currentQuality)")
 
-                // 🛠️ THE FIX: Moved AFTER bindToLifecycle.
-                // Setting to null first forces CameraX to request a brand new surface stream
-                // for the newly bound lens, eliminating the blank screen.
                 activeSurfaceProvider?.let {
                     provider ->
                     previewUseCase?.setSurfaceProvider(null)
@@ -201,15 +267,12 @@ class CameraForegroundService : LifecycleService() {
                 }
 
                 if (startRecording) {
-                    // Cancel any previous scheduled warmup task sitting in queue
                     pendingWarmupTask?.cancel(false)
-
-                    // 400ms delay gives hardware sensors time to initialize AE/AF properly
                     pendingWarmupTask = metricsExecutor.schedule({
                         if (isIntentionalRecording) {
                             startNewRecordingSegment()
                         }
-                    }, 400, TimeUnit.MILLISECONDS)
+                    }, 500, TimeUnit.MILLISECONDS) // Warmup buffer
                 }
 
             } catch (exc: Exception) {
@@ -231,7 +294,6 @@ class CameraForegroundService : LifecycleService() {
             return
         }
 
-
         try {
             val name = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US).format(System.currentTimeMillis())
             val file = File(getExternalFilesDir(null), "$name.mp4")
@@ -243,7 +305,6 @@ class CameraForegroundService : LifecycleService() {
 
             var pendingRecording = videoCap.output.prepareRecording(this, outputOptions)
 
-            // Attempt to enable audio with safety check
             if (!isMuted) {
                 if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
                     try {
@@ -273,37 +334,37 @@ class CameraForegroundService : LifecycleService() {
                         } else {
                             val errStr = getVideoRecordErrorString(recordEvent.error)
 
-                            // If no valid data was written, delete the empty 0-byte file
                             if (recordEvent.error == VideoRecordEvent.Finalize.ERROR_NO_VALID_DATA) {
                                 if (currentFileRef.exists()) {
                                     currentFileRef.delete()
                                 }
                                 emitDebug("Discarded empty segment due to missing stream data")
                             } else if (currentFileRef.exists() && currentFileRef.length() > 0) {
-                                // Recover partial video if file has actual data
                                 handleFinishedSegment(currentFileRef)
                             } else {
                                 emitError("Recording finalize error: $errStr", recordEvent.cause)
                             }
                         }
 
-                        // Handle queued state changes safely
                         if (instance != null && isIntentionalRecording) {
-                            if (pendingLensFacing != null || pendingQuality != null) {
-                                emitDebug("Applying pending changes during file finalization...")
-                                if (pendingLensFacing != null) {
-                                    lensFacing = pendingLensFacing!!
-                                    pendingLensFacing = null
+                            // Delay next segment slightly to prevent camera muxer race conditions
+                            metricsExecutor.schedule({
+                                if (pendingLensFacing != null || pendingQuality != null) {
+                                    emitDebug("Applying pending changes during file finalization...")
+                                    if (pendingLensFacing != null) {
+                                        lensFacing = pendingLensFacing!!
+                                        pendingLensFacing = null
+                                    }
+                                    if (pendingQuality != null) {
+                                        currentQuality = pendingQuality!!
+                                        pendingQuality = null
+                                        videoCapture = null
+                                    }
+                                    startCamera(startRecording = true)
+                                } else {
+                                    startNewRecordingSegment()
                                 }
-                                if (pendingQuality != null) {
-                                    currentQuality = pendingQuality!!
-                                    pendingQuality = null
-                                    videoCapture = null
-                                }
-                                startCamera(startRecording = true)
-                            } else {
-                                startNewRecordingSegment()
-                            }
+                            }, 250, TimeUnit.MILLISECONDS)
                         }
                     }
                 }
@@ -312,7 +373,6 @@ class CameraForegroundService : LifecycleService() {
             emitError("Exception while starting recording segment", e)
             activeRecording = null
         }
-
     }
 
     private fun getVideoRecordErrorString(error: Int): String {
@@ -349,7 +409,6 @@ class CameraForegroundService : LifecycleService() {
         emitDebug("User requested camera flip")
         val newLens = if (lensFacing == CameraSelector.LENS_FACING_BACK)
             CameraSelector.LENS_FACING_FRONT else CameraSelector.LENS_FACING_BACK
-
         pendingLensFacing = newLens
 
         if (activeRecording != null) {
@@ -388,6 +447,7 @@ class CameraForegroundService : LifecycleService() {
     }
 
     private fun startSystemMetricsPolling() {
+        // Reduced frequency to every 15 seconds to save background battery
         metricsExecutor.scheduleAtFixedRate({
             try {
                 val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
@@ -397,42 +457,19 @@ class CameraForegroundService : LifecycleService() {
                 val batteryLevel = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
 
                 emitEvent("SYSTEM_STATS", mapOf(
-                    "cpuUsage" to calculateCpuUsageSafely(),
                     "batteryTemperature" to batteryTempCelsius,
                     "batteryLevel" to batteryLevel,
                     "timestamp" to System.currentTimeMillis()
                 ))
             } catch (e: Exception) {}
-        }, 0, 3, TimeUnit.SECONDS)
-    }
-
-    private fun calculateCpuUsageSafely(): Double {
-        return try {
-            val reader = RandomAccessFile("/proc/stat", "r")
-            var load = reader.readLine() ?: return 0.0
-            var toks = load.split(" +".toRegex())
-            val idle1 = toks[5].toLong()
-            val cpu1 = toks[2].toLong() + toks[3].toLong() + toks[4].toLong() + toks[6].toLong() + toks[7].toLong() + toks[8].toLong()
-
-            Thread.sleep(100)
-
-            reader.seek(0)
-            load = reader.readLine() ?: return 0.0
-            reader.close()
-            toks = load.split(" +".toRegex())
-            val idle2 = toks[5].toLong()
-            val cpu2 = toks[2].toLong() + toks[3].toLong() + toks[4].toLong() + toks[6].toLong() + toks[7].toLong() + toks[8].toLong()
-
-            val total = (cpu2 - cpu1) + (idle2 - idle1)
-            if (total <= 0) 0.0 else ((cpu2 - cpu1).toDouble() / total) * 100.0
-        } catch (ex: Exception) {
-            0.0
-        }
+        }, 0, 15, TimeUnit.SECONDS)
     }
 
     private fun handleFinishedSegment(file: File) {
         if (file.exists() && file.length() > 0) {
-            savedFiles.add(file)
+            synchronized(savedFiles) {
+                savedFiles.add(file)
+            }
             emitEvent("SEGMENT_FINISHED", mapOf("file" to file.absolutePath, "size" to file.length()))
             manageStorageLoop()
         }
@@ -441,16 +478,26 @@ class CameraForegroundService : LifecycleService() {
     private fun manageStorageLoop() {
         if (!autoDelete) return
         synchronized(savedFiles) {
+            // First, purge missing files to fix memory leaks if files were manually deleted
+            savedFiles.removeAll {
+                !it.exists()
+            }
+
             var totalSize = savedFiles.sumOf {
                 it.length()
             }
             val maxBytes = maxStorageUsageMB * 1024L * 1024L
 
-            while (totalSize > maxBytes && savedFiles.isNotEmpty()) {
-                val oldest = savedFiles.removeAt(0)
+            val iterator = savedFiles.iterator()
+            while (totalSize > maxBytes && iterator.hasNext()) {
+                val oldest = iterator.next()
                 if (oldest.exists()) {
                     totalSize -= oldest.length()
-                    oldest.delete()
+                    if (oldest.delete()) {
+                        iterator.remove() // Safely removes from memory list
+                    }
+                } else {
+                    iterator.remove()
                 }
             }
         }
@@ -508,6 +555,7 @@ class CameraForegroundService : LifecycleService() {
             activeRecording?.stop()
         } catch (e: Exception) {}
         activeRecording = null
+        releaseWakeLock()
         try {
             ProcessCameraProvider.getInstance(this).get().unbindAll()
             if (autoOptimize && isBatteryReceiverRegistered) {

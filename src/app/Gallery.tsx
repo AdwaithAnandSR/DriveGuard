@@ -3,12 +3,16 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { FlashList, ListRenderItem } from "@shopify/flash-list";
 
 import { CamUtils } from "../utils/camera.ts";
+import { useStore } from "../utils/store";
 import RenderItem, { VideoItem } from "../components/GalleryItem.tsx";
 
 const getFiles = CamUtils.getFiles;
 
 const Gallery = ({ fullview, toggleFullView }) => {
-    const [files, setFiles] = useState<VideoItem[]>([]);
+    const files = useStore(state => state.files);
+    const setFiles = useStore(state => state.setFiles);
+    const deleteFile = useStore(state => state.deleteFile);
+
     const [isSelecting, setSelecting] = useState(false);
     const [multiSelectList, setMultiSelectList] = useState<string[]>([]);
 
@@ -25,14 +29,14 @@ const Gallery = ({ fullview, toggleFullView }) => {
     };
 
     const onDelete = async () => {
-        // await deleteSelected(multiSelectList);
-        setFiles(prev =>
-            prev.filter(item => !multiSelectList.includes(item.uri))
-        );
+        for (const path of multiSelectList) {
+            await CamUtils.deleteFile(path);
+            deleteFile(path);
+        }
+
         setMultiSelectList([]);
         setSelecting(false);
     };
-
     const selectedSet = new Set(multiSelectList);
 
     const renderItem: ListRenderItem<VideoItem> = ({ item }) => (
@@ -47,11 +51,9 @@ const Gallery = ({ fullview, toggleFullView }) => {
     const keyExtractor = (item: VideoItem) => item.uri;
 
     useEffect(() => {
-        const fetch = async () => {
-            const files = await getFiles();
-            setFiles(files);
-        };
-        fetch();
+        (async () => {
+            setFiles(await CamUtils.getFiles());
+        })();
     }, []);
 
     return (

@@ -33,13 +33,12 @@ export const CamUtils = {
                 maxVideoSizeInMB
             } = useStore.getState();
 
-            
             const res = await DriveCam.startRecording({
                 maxDurationMs: limitDuration * 60 * 1000,
                 maxSizeMB: maxVideoSizeInMB,
-                maxStorageUsageMB: maxStorageUsageMB,
-                autoDelete: autoDelete,
-                autoOptimize: false,
+                maxStorageUsageMB,
+                autoDelete,
+                autoOptimize,
                 lensFacing: "back",
                 quality: videoQuality,
                 ...config // Allow overrides
@@ -77,7 +76,8 @@ export const CamUtils = {
 
     async muteAudio(isMuted: boolean) {
         try {
-            await DriveCam.mute(isMuted);
+            console.log("got ", isMuted);
+            await DriveCam.mute(!isMuted);
             return { success: true };
         } catch (error) {
             console.error("Failed to change mute state:", error);
@@ -124,6 +124,7 @@ export const CamUtils = {
             return { success: false, error: "Failed to pause" };
         }
     },
+
     async resume() {
         try {
             await DriveCam.resumeRecording();
@@ -131,6 +132,16 @@ export const CamUtils = {
         } catch (error) {
             console.error("Failed to resume:", error);
             return { success: false, error: "Failed to resume" };
+        }
+    },
+
+    async deleteFile(path) {
+        try {
+            await DriveCam.deleteVideoFile(path);
+            return { success: true };
+        } catch (error) {
+            console.error("Failed to delete:", error);
+            return { success: false, error: "Failed to delete" };
         }
     }
 };

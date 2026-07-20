@@ -111,9 +111,15 @@ class DriveCamModule : Module() {
         }
 
         Function("flipCamera") {
-            CameraForegroundService.instance?.flipCamera()
-            true
+            val service = CameraForegroundService.instance
+            if (service != null) {
+                service.flipCamera()
+                true
+            } else {
+                false
+            }
         }
+
 
         Function("getSavedVideoFiles") {
             val context = appContext.reactContext ?: return@Function emptyList<Map<String, Any>>()

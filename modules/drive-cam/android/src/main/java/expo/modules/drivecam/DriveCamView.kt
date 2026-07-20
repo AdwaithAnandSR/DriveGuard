@@ -13,11 +13,20 @@ class DriveCamView(context: Context, appContext: AppContext) : ExpoView(context,
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT
         )
-        implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+        // PERFORMANCE mode uses SurfaceView for instant hardware surface allocation,
+        // eliminating the initial black screen and surface delay bugs.
+        implementationMode = PreviewView.ImplementationMode.PERFORMANCE
     }
 
     init {
         addView(previewView)
+
+        // Ensure surface provider is attached as soon as the view is fully attached to window
+        post {
+            val provider = previewView.surfaceProvider
+            CameraForegroundService.activeSurfaceProvider = provider
+            CameraForegroundService.instance?.attachSurfaceProvider(provider)
+        }
     }
 
     override fun requestLayout() {

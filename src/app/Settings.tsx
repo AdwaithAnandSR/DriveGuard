@@ -41,11 +41,13 @@ const QUALITY_MAP = {
 export default function SettingsScreen() {
     const {
         autoDelete,
-        videoQuality,
-        maxStorageUsageMB,
         setAutoDelete,
-        setMaxStorageUsageMB,
+        videoQuality,
         setVideoQuality,
+        maxStorageUsageMB,
+        setMaxStorageUsageMB,
+        maxVideoSizeInMB,
+        setMaxVideoSizeInMB,
         limitDuration,
         setLimitDuration
     } = useStore();
@@ -54,6 +56,11 @@ export default function SettingsScreen() {
         maxStorageUsageMB >= 1024
             ? `${maxStorageUsageMB / 1024} GB`
             : `${maxStorageUsageMB} MB`;
+
+    const storageLabel_2 =
+        maxVideoSizeInMB >= 1024
+            ? `${maxVideoSizeInMB / 1024} GB`
+            : `${maxVideoSizeInMB} MB`;
 
     return (
         <SafeAreaView style={styles.container}>
@@ -68,6 +75,23 @@ export default function SettingsScreen() {
                         <Text adjustsFontSizeToFit style={styles.description}>
                             Automatically delete older videos when the storage
                             limit is exceeded.
+                        </Text>
+                    </View>
+                </View>
+
+                <Switch value={autoDelete} onValueChange={setAutoDelete} />
+            </View>
+
+            {/* Auto Optimize */}
+            <View style={styles.item}>
+                <View style={styles.left}>
+                    <View style={styles.textContainer}>
+                        <Text style={styles.label}>Auto Optimize</Text>
+
+                        <Text adjustsFontSizeToFit style={styles.description}>
+                            When enabled, the dashcam automatically lowers video
+                            quality if your device temperature exceeds 40°C to
+                            prevent overheating and system shutdowns
                         </Text>
                     </View>
                 </View>
@@ -110,6 +134,41 @@ export default function SettingsScreen() {
                 </MenuView>
             </View>
 
+            {/* Video Limit */}
+            <View style={styles.item}>
+                <View style={styles.left}>
+                    <View style={styles.textContainer}>
+                        <Text style={styles.label}>Video Limit</Text>
+                        <Text style={styles.description}>
+                            Maximum storage used by one video.
+                        </Text>
+                    </View>
+                </View>
+
+                <MenuView
+                    actions={[
+                        { id: "100", title: "100 MB" },
+                        { id: "250", title: "250 MB" },
+                        { id: "500", title: "500 MB" },
+                        { id: "1g", title: "1 GB" },
+                        { id: "3g", title: "3 GB" },
+                        { id: "5g", title: "5 GB" },
+                        { id: "10g", title: "10 GB" }
+                    ]}
+                    onPressAction={({ nativeEvent }) => {
+                        setMaxVideoSizeInMB(
+                            STORAGE_LIMITS[
+                                nativeEvent.event as keyof typeof STORAGE_LIMITS
+                            ]
+                        );
+                    }}
+                >
+                    <Pressable style={styles.right}>
+                        <Text style={styles.value}>{storageLabel_2}</Text>
+                    </Pressable>
+                </MenuView>
+            </View>
+
             {/* Duration Limit */}
             <View style={styles.item}>
                 <View style={styles.left}>
@@ -128,7 +187,7 @@ export default function SettingsScreen() {
                     }
                 >
                     <Pressable style={styles.right}>
-                        <Text style={styles.value}>{limitDuration}</Text>
+                        <Text style={styles.value}>{limitDuration} min</Text>
                     </Pressable>
                 </MenuView>
             </View>
@@ -184,7 +243,7 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         padding: 10,
         marginBottom: 12,
-        height: 70
+        height: 80
     },
     left: {
         flex: 1,
@@ -192,7 +251,8 @@ const styles = StyleSheet.create({
     },
     textContainer: {
         flex: 1,
-        marginLeft: 14
+        marginLeft: 14,
+        justifyContent: "center"
     },
     label: {
         color: "#fff",

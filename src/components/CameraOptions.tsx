@@ -1,6 +1,7 @@
 import { StyleSheet, View } from "react-native";
 
 import TopRow from "../components/CamOptionsTopRow.tsx";
+import TopLeftColumn from "../components/CamOptionsTopLeftColumn.tsx";
 import BottomRow from "../components/CamOptionsBottomRow.tsx";
 
 import { useStore } from "../utils/store.ts";
@@ -10,7 +11,10 @@ export default function CameraOptions({ camPermission, micPermission }) {
 
     return (
         <View style={[styles.container, { flex: fullview ? 1 : 0.8 }]}>
-            <TopRow />
+            <View style={{ flex: 1 }}>
+                <TopRow />
+                <TopLeftColumn />
+            </View>
             <BottomRow />
         </View>
     );
