@@ -47,9 +47,14 @@ class CameraForegroundService : LifecycleService() {
     private var autoDelete: Boolean = true
     private var autoOptimize: Boolean = false
     private var lensFacing = CameraSelector.LENS_FACING_BACK
+    private var pendingLensFacing: Int? = null
+    private var pendingQuality: Quality? = null
+    private var pendingWarmupTask: java.util.concurrent.ScheduledFuture<*>? = null
 
     private var videoCapture: VideoCapture<Recorder>? = null
     private var previewUseCase: Preview? = null
+
+    @Volatile
     private var activeRecording: Recording? = null
 
     private var isIntentionalRecording = false
@@ -99,29 +104,41 @@ class CameraForegroundService : LifecycleService() {
                     val requestedLens = if (requestedLensStr == "front") CameraSelector.LENS_FACING_FRONT else CameraSelector.LENS_FACING_BACK
                     val newQuality = getQualityFromString(intent.getStringExtra("quality"))
 
-                    val qualityChanged = newQuality != userRequestedQuality
+                    val qualityChanged = newQuality != currentQuality
                     val lensChanged = requestedLens != lensFacing
 
                     userRequestedQuality = newQuality
+
+                    isIntentionalRecording = true
+                    updateNotification("Dashcam Active", "Recording in background...")
+
+                    // Safety Gate: If a recording session is already running
+                    if (activeRecording != null) {
+                        if (qualityChanged || lensChanged) {
+                            emitDebug("Stopping existing active recording session to apply new settings")
+                            if (lensChanged) pendingLensFacing = requestedLens
+                            if (qualityChanged) pendingQuality = newQuality
+
+                            activeRecording?.stop()
+                        } else {
+                            emitDebug("Recording active with identical settings. Skipping restart.")
+                        }
+                        return START_STICKY
+                    }
+
+                    // Update state FIRST before registering receiver to avoid sticky broadcast triggers
                     currentQuality = newQuality
                     lensFacing = requestedLens
 
                     if (autoOptimize) registerThermalBatteryReceiver()
 
-                    isIntentionalRecording = true
-                    updateNotification("Dashcam Active", "Recording in background...")
-
-                    if (activeRecording != null) {
-                        emitDebug("Stopping existing active recording session before switching state")
-                        activeRecording?.stop()
-                        activeRecording = null
-                    }
-
                     if (videoCapture == null || previewUseCase == null || qualityChanged || lensChanged) {
+                        if (qualityChanged) videoCapture = null // Force recorder to apply new quality
                         startCamera(startRecording = true)
                     } else {
                         startNewRecordingSegment()
                     }
+
                 } catch (e: Exception) {
                     emitError("Error handling START_RECORDING", e)
                 }
@@ -134,7 +151,6 @@ class CameraForegroundService : LifecycleService() {
                 } catch (e: Exception) {
                     emitError("Error stopping active recording", e)
                 }
-                activeRecording = null
                 updateNotification("Camera on Standby", "Preview active...")
             }
             ACTION_SHUTDOWN -> {
@@ -160,11 +176,6 @@ class CameraForegroundService : LifecycleService() {
                     previewUseCase = Preview.Builder().build()
                 }
 
-                activeSurfaceProvider?.let {
-                    provider ->
-                    previewUseCase?.setSurfaceProvider(provider)
-                }
-
                 if (videoCapture == null) {
                     val recorder = Recorder.Builder()
                     .setQualitySelector(QualitySelector.from(currentQuality))
@@ -180,14 +191,27 @@ class CameraForegroundService : LifecycleService() {
                 cameraProvider.bindToLifecycle(this, cameraSelector, videoCapture!!, previewUseCase!!)
                 emitDebug("Camera bound successfully to lifecycle")
 
+                // 🛠️ THE FIX: Moved AFTER bindToLifecycle.
+                // Setting to null first forces CameraX to request a brand new surface stream
+                // for the newly bound lens, eliminating the blank screen.
+                activeSurfaceProvider?.let {
+                    provider ->
+                    previewUseCase?.setSurfaceProvider(null)
+                    previewUseCase?.setSurfaceProvider(provider)
+                }
+
                 if (startRecording) {
-                    // Small thread pause to let hardware camera pipeline warm up cleanly
-                    metricsExecutor.schedule({
+                    // Cancel any previous scheduled warmup task sitting in queue
+                    pendingWarmupTask?.cancel(false)
+
+                    // 400ms delay gives hardware sensors time to initialize AE/AF properly
+                    pendingWarmupTask = metricsExecutor.schedule({
                         if (isIntentionalRecording) {
                             startNewRecordingSegment()
                         }
-                    }, 200, TimeUnit.MILLISECONDS)
+                    }, 400, TimeUnit.MILLISECONDS)
                 }
+
             } catch (exc: Exception) {
                 emitError("Failed to bind camera use cases", exc)
             }
@@ -207,6 +231,7 @@ class CameraForegroundService : LifecycleService() {
             return
         }
 
+
         try {
             val name = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US).format(System.currentTimeMillis())
             val file = File(getExternalFilesDir(null), "$name.mp4")
@@ -218,9 +243,14 @@ class CameraForegroundService : LifecycleService() {
 
             var pendingRecording = videoCap.output.prepareRecording(this, outputOptions)
 
+            // Attempt to enable audio with safety check
             if (!isMuted) {
                 if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                    pendingRecording = pendingRecording.withAudioEnabled()
+                    try {
+                        pendingRecording = pendingRecording.withAudioEnabled()
+                    } catch (e: Exception) {
+                        emitEvent("WARNING", mapOf("message" to "Failed to initialize audio source, recording video only"))
+                    }
                 } else {
                     emitEvent("WARNING", mapOf("message" to "Audio permission missing, recording without audio"))
                 }
@@ -232,26 +262,48 @@ class CameraForegroundService : LifecycleService() {
                 when (recordEvent) {
                     is VideoRecordEvent.Finalize -> {
                         val currentFileRef = file
-                        activeRecording = null // Free lock immediately on finalize callback
+                        activeRecording = null
 
-                        if (!recordEvent.hasError() ||
-                            recordEvent.error == VideoRecordEvent.Finalize.ERROR_FILE_SIZE_LIMIT_REACHED ||
-                            recordEvent.error == VideoRecordEvent.Finalize.ERROR_DURATION_LIMIT_REACHED) {
+                        val hasError = recordEvent.hasError() &&
+                        recordEvent.error != VideoRecordEvent.Finalize.ERROR_FILE_SIZE_LIMIT_REACHED &&
+                        recordEvent.error != VideoRecordEvent.Finalize.ERROR_DURATION_LIMIT_REACHED
 
+                        if (!hasError) {
                             handleFinishedSegment(currentFileRef)
                         } else {
                             val errStr = getVideoRecordErrorString(recordEvent.error)
-                            emitError("Recording finalize error: $errStr", recordEvent.cause)
 
-                            // Fail-safe check: Did it actually write data despite error code?
-                            if (currentFileRef.exists() && currentFileRef.length() > 0) {
+                            // If no valid data was written, delete the empty 0-byte file
+                            if (recordEvent.error == VideoRecordEvent.Finalize.ERROR_NO_VALID_DATA) {
+                                if (currentFileRef.exists()) {
+                                    currentFileRef.delete()
+                                }
+                                emitDebug("Discarded empty segment due to missing stream data")
+                            } else if (currentFileRef.exists() && currentFileRef.length() > 0) {
+                                // Recover partial video if file has actual data
                                 handleFinishedSegment(currentFileRef)
+                            } else {
+                                emitError("Recording finalize error: $errStr", recordEvent.cause)
                             }
                         }
 
-                        // Auto-segment looping if intentional recording remains active
+                        // Handle queued state changes safely
                         if (instance != null && isIntentionalRecording) {
-                            startNewRecordingSegment()
+                            if (pendingLensFacing != null || pendingQuality != null) {
+                                emitDebug("Applying pending changes during file finalization...")
+                                if (pendingLensFacing != null) {
+                                    lensFacing = pendingLensFacing!!
+                                    pendingLensFacing = null
+                                }
+                                if (pendingQuality != null) {
+                                    currentQuality = pendingQuality!!
+                                    pendingQuality = null
+                                    videoCapture = null
+                                }
+                                startCamera(startRecording = true)
+                            } else {
+                                startNewRecordingSegment()
+                            }
                         }
                     }
                 }
@@ -260,6 +312,7 @@ class CameraForegroundService : LifecycleService() {
             emitError("Exception while starting recording segment", e)
             activeRecording = null
         }
+
     }
 
     private fun getVideoRecordErrorString(error: Int): String {
@@ -293,11 +346,19 @@ class CameraForegroundService : LifecycleService() {
     }
 
     fun flipCamera() {
-        activeRecording?.stop()
-        activeRecording = null
-        lensFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK)
+        emitDebug("User requested camera flip")
+        val newLens = if (lensFacing == CameraSelector.LENS_FACING_BACK)
             CameraSelector.LENS_FACING_FRONT else CameraSelector.LENS_FACING_BACK
-        startCamera(startRecording = isIntentionalRecording)
+
+        pendingLensFacing = newLens
+
+        if (activeRecording != null) {
+            activeRecording?.stop()
+        } else {
+            lensFacing = newLens
+            pendingLensFacing = null
+            startCamera(startRecording = false)
+        }
     }
 
     fun attachSurfaceProvider(provider: Preview.SurfaceProvider?) {
@@ -399,12 +460,19 @@ class CameraForegroundService : LifecycleService() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val temp = intent?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) ?: 0
             val celsius = temp / 10.0
-            val newQuality = if (celsius > 40.0) Quality.LOWEST else Quality.HIGHEST
+
+            val newQuality = if (celsius > 40.0) Quality.LOWEST else userRequestedQuality
+
             if (newQuality != currentQuality) {
-                currentQuality = newQuality
-                activeRecording?.stop()
-                activeRecording = null
-                startCamera(startRecording = isIntentionalRecording)
+                pendingQuality = newQuality
+                if (activeRecording != null) {
+                    activeRecording?.stop()
+                } else {
+                    currentQuality = newQuality
+                    pendingQuality = null
+                    videoCapture = null
+                    startCamera(startRecording = isIntentionalRecording)
+                }
             }
         }
     }

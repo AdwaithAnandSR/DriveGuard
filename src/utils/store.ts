@@ -47,7 +47,7 @@ export const useStore = create<SettingsState>()(
             autoDelete: true,
             paused: false,
             lensFacing: "back",
-            showPreview: false,
+            showPreview: true,
 
             setVideoQuality: videoQuality => set({ videoQuality }),
             setMaxStorageUsageMB: maxStorageUsageMB =>
@@ -64,13 +64,12 @@ export const useStore = create<SettingsState>()(
             toggleShowPreview: () => set({ showPreview: !get().showPreview })
         }),
         {
-            name: "settings",
+            name: "DriveCam",
             storage: createJSONStorage(() => mmkvStorage),
             partialize: state => ({
                 videoQuality: state.videoQuality,
                 maxStorageUsageMB: state.maxStorageUsageMB,
                 limitDuration: state.limitDuration,
-                isMuted: state.isMuted,
                 autoDelete: state.autoDelete,
                 autoOptimize: state.autoOptimize,
                 lensFacing: state.lensFacing,

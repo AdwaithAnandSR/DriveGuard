@@ -8,7 +8,9 @@ import Header from "../components/Header.tsx";
 import CameraOptions from "../components/CameraOptions.tsx";
 
 import { useStore } from "../utils/store.ts";
-import { CameraView, CamUtils } from "../utils/camera.ts";
+import { CameraView, CamUtils, DriveCam } from "../utils/camera.ts";
+
+import { useEventListener } from "expo";
 
 export default function App() {
     const fullview = useStore(state => state.fullview);
@@ -19,6 +21,41 @@ export default function App() {
     const requested = useRef(false);
     const isFocused = useIsFocused();
 
+    useEventListener(DriveCam, "onRecordingEvent", event => {
+        const { type, data } = event;
+
+        switch (type) {
+            case "DEBUG":
+                console.log(
+                    `[DriveCam Debug] 🪲 ${data.message}`,
+                    new Date(data.timestamp).toLocaleTimeString()
+                );
+                break;
+
+            case "ERROR":
+                console.error(
+                    `[DriveCam Error] ❌ ${data.message}`,
+                    data.cause || ""
+                );
+                if (data.stackTrace) console.debug(data.stackTrace);
+                break;
+
+            case "SEGMENT_FINISHED":
+                console.log(
+                    `[Segment Saved] 💾 File: ${data.file}, Size: ${(data.size / 1024 / 1024).toFixed(2)} MB`
+                );
+                break;
+
+            case "SYSTEM_STATS":
+                // Optional: Monitor CPU load and battery temperature updates every 3s
+                // console.log(`[Stats] CPU: ${data.cpuUsage.toFixed(1)}% | Battery: ${data.batteryTemperature}°C`);
+                break;
+
+            default:
+                console.log(`[DriveCam Event: ${type}]`, data);
+        }
+    });
+
     // index.tsx — drop the showPreview gate, start whenever permission is granted
     useEffect(() => {
         if (!camPermission) return;
@@ -27,19 +64,28 @@ export default function App() {
             if (camPermission.granted) {
                 CamUtils.startPreview();
             } else if (camPermission.canAskAgain) {
-                await requestCamPermission();
+                await reqPermissions();
             } else {
-                Alert.alert(/* ...unchanged... */);
+                Alert.alert(
+                    "Camera permission required",
+                    "Please enable Camera and Microphone permissions in Settings.",
+                    [
+                        { text: "Cancel", style: "cancel" },
+                        {
+                            text: "Open Settings",
+                            onPress: Linking.openSettings()
+                        }
+                    ]
+                );
             }
         };
         fun();
-    }, [camPermission]); // showPreview removed from deps
+    }, [camPermission]);
 
     if (!camPermission)
         return <View style={[styles.camera, { height: "100%" }]} />;
 
     const reqPermissions = () => {
-        console.log("called request permission...");
         requestCamPermission();
         requestMicPermission();
     };

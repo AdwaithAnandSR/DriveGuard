@@ -5,7 +5,7 @@ import {
 import { NativeEventEmitter } from "react-native";
 import { Camera } from "expo-camera";
 
-const DriveCam = requireNativeModule("DriveCam");
+export const DriveCam = requireNativeModule("DriveCam");
 export const CameraView = requireNativeViewManager("DriveCam");
 // export const CamEmitter = new NativeEventEmitter(DriveCam);
 
@@ -33,29 +33,17 @@ export const CamUtils = {
                 maxVideoSizeInMB
             } = useStore.getState();
 
-            console.log(
-                "calling start recording...\n",
-                maxStorageUsageMB,
-                limitDuration,
-                autoDelete,
-                autoOptimize,
-                lensFacing,
-                videoQuality,
-                maxVideoSizeInMB
-            );
-
-            const res =  await DriveCam.startRecording({
+            
+            const res = await DriveCam.startRecording({
                 maxDurationMs: limitDuration * 60 * 1000,
                 maxSizeMB: maxVideoSizeInMB,
                 maxStorageUsageMB: maxStorageUsageMB,
                 autoDelete: autoDelete,
-                autoOptimize: autoOptimize,
+                autoOptimize: false,
                 lensFacing: "back",
                 quality: videoQuality,
                 ...config // Allow overrides
             });
-            
-            console.log(res)
 
             return { success: true };
         } catch (error) {
