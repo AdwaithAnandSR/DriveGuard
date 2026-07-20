@@ -93,6 +93,7 @@ class DriveCamModule : Module() {
             }
         }
 
+        // FIX: Added missing braces and return value
         Function("pauseRecording") {
             CameraForegroundService.instance?.pauseRecording()
             true

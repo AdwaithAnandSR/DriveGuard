@@ -16,11 +16,15 @@ export type DriveCamViewProps = {
     previewEnabled?: boolean;
     style?: any;
 };
-
-// --- NEW: Structure for saved video files ---
+-
 export type SavedVideoFile = {
     name: string;
     path: string;
     size: number;        // Size in bytes
     createdAt: number;   // Unix timestamp
+};
+
+export type CameraEventPayload = {
+    type: "ERROR" | "WARNING" | "SYSTEM_STATS" | "SEGMENT_FINISHED" | "RECORDING_PAUSED" | "RECORDING_RESUMED";
+    data: Record<string, any>;
 };

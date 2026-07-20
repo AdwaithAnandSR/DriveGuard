@@ -1,300 +1,290 @@
-// import React, { useState, useEffect, useRef } from "react";
-// import {
-//     View,
-//     Text,
-//     Button,
-//     ScrollView,
-//     StyleSheet,
-//     SafeAreaView,
-//     FlatList,
-//     Alert
-// } from "react-native";
-// import { useCameraPermissions, useMicrophonePermissions } from "expo-camera";
+import React, { useEffect, useState, useRef } from "react";
+import {
+    StyleSheet,
+    Text,
+    View,
+    ScrollView,
+    TouchableOpacity,
+    PermissionsAndroid,
+    Platform
+} from "react-native";
+import DriveCamView from "../../modules/drive-cam/src/DriveCamView.tsx";
+import {
+    startPreview,
+    startRecording,
+    stopRecording,
+    pauseRecording,
+    resumeRecording,
+    mute,
+    flipCamera,
+    getSavedVideoFiles,
+    deleteVideoFile,
+    shutdownCamera,
+    addRecordingEventListener
+} from "../../modules/drive-cam/src/DriveCamModule.ts";
+import { CameraConfig, SavedVideoFile } from "../../modules/drive-cam/src//DriveCam.types";
 
-// // Adjust these imports to your actual file paths
-// import DriveCamView from "../../modules/drive-cam/src/DriveCamView.tsx";
-// import {
-//     startPreview,
-//     shutdownCamera,
-//     startRecording,
-//     stopRecording,
-//     pauseRecording,
-//     resumeRecording,
-//     mute,
-//     flipCamera,
-//     getSavedVideoFiles,
-//     deleteVideoFile,
-//     addRecordingEventListener
-// } from "../../modules/drive-cam/src/DriveCamModule.ts";
-// import { SavedVideoFile } from "../../modules/drive-cam/src/DriveCam.types.ts";
+export default function App() {
+    const [hasPermissions, setHasPermissions] = useState(false);
+    const [logs, setLogs] = useState<string[]>([]);
+    const [files, setFiles] = useState<SavedVideoFile[]>([]);
 
-// export default function App() {
-//     const [cameraPermission, requestCameraPermission] = useCameraPermissions();
-//     const [micPermission, requestMicPermission] = useMicrophonePermissions();
+    // State toggles for UI tracking
+    const [isMuted, setIsMuted] = useState(false);
+    const [previewEnabled, setPreviewEnabled] = useState(true);
 
-//     // UI & Module State
-//     const [showPreview, setShowPreview] = useState(true);
-//     const [isMuted, setIsMuted] = useState(false);
-//     const [files, setFiles] = useState<SavedVideoFile[]>([]);
-//     const [logs, setLogs] = useState<string[]>([]);
-//     const scrollViewRef = useRef<ScrollView>(null);
+    const scrollViewRef = useRef<ScrollView>(null);
 
-//     // Logging Helper - Adds timestamp to every action
-//     const addLog = (message: string) => {
-//         const time = new Date().toISOString().split("T")[1].slice(0, -1); // Gets HH:MM:SS.mmm
-//         setLogs(prev => [...prev, `[${time}] ${message}`]);
-//     };
+    const addLog = (msg: string) => {
+        setLogs(prev => [
+            ...prev,
+            `[${new Date().toISOString().split("T")[1].slice(0, -1)}] ${msg}`
+        ]);
+    };
 
-//     // 1. Lifecycle & Event Listeners
-//     useEffect(() => {
-//         addLog("App Mounted. Checking permissions...");
+    useEffect(() => {
+        requestPermissions();
 
-//         if (!cameraPermission?.granted) requestCameraPermission();
-//         if (!micPermission?.granted) requestMicPermission();
+        // Attach Event Listener
+        const subscription = addRecordingEventListener(event => {
+            // Ignore system stats to prevent log flooding
+            if (event.type === "SYSTEM_STATS") return;
 
-//         // Attach native event listener
-//         const subscription = addRecordingEventListener(event => {
-//             addLog(
-//                 `⚡ EVENT: ${event.type} | Data: ${JSON.stringify(event.data)}`
-//             );
-//         });
-//         addLog("Event listener attached.");
+            addLog(`EVENT: ${event.type} | ${JSON.stringify(event.data)}`);
+        });
 
-//         return () => {
-//             addLog("App Unmounting. Cleaning up...");
-//             subscription.remove();
-//             shutdownCamera();
-//         };
-//     }, [cameraPermission?.granted, micPermission?.granted]);
+        return () => {
+            subscription.remove();
+        };
+    }, []);
 
-//     // 2. Action Handlers
-//     const handleStartPreview = () => {
-//         addLog("▶️ Action: startPreview()");
-//         const res = startPreview();
-//         addLog(`Result: ${res}`);
-//     };
+    const requestPermissions = async () => {
+        if (Platform.OS === "android") {
+            try {
+                const granted = await PermissionsAndroid.requestMultiple([
+                    PermissionsAndroid.PERMISSIONS.CAMERA,
+                    PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+                    // Android 13+ requires notification permissions for Foreground Services
+                    ...(Platform.Version >= 33
+                        ? [PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS]
+                        : [])
+                ]);
 
-//     const handleShutdown = () => {
-//         addLog("⏹️ Action: shutdownCamera()");
-//         const res = shutdownCamera();
-//         addLog(`Result: ${res}`);
-//     };
+                const allGranted = Object.values(granted).every(
+                    status => status === PermissionsAndroid.RESULTS.GRANTED
+                );
 
-//     const handleStartRecording = () => {
-//         addLog("⏺️ Action: startRecording(1080p, back)");
-//         const res = startRecording({
-//             maxDurationMs: 60000,
-//             maxSizeMB: 100,
-//             maxStorageUsageMB: 1000,
-//             autoDelete: true,
-//             autoOptimize: true,
-//             lensFacing: "back",
-//             quality: "1080p"
-//         });
-//         addLog(`Result: ${res}`);
-//     };
+                setHasPermissions(allGranted);
+                if (allGranted) addLog("Permissions granted");
+                else addLog("Permissions DENIED");
+            } catch (err: any) {
+                addLog(`Permission Error: ${err.message}`);
+            }
+        }
+    };
 
-//     const handleStopRecording = () => {
-//         addLog("⏹️ Action: stopRecording()");
-//         const res = stopRecording();
-//         addLog(`Result: ${res}`);
-//     };
+    // --- Actions ---
 
-//     const handleFlip = () => {
-//         addLog("🔄 Action: flipCamera()");
-//         const res = flipCamera();
-//         addLog(`Result: ${res}`);
-//     };
+    const handleStartPreview = () => {
+        const success = startPreview();
+        addLog(`startPreview: ${success}`);
+    };
 
-//     const handleToggleMute = () => {
-//         const newMute = !isMuted;
-//         addLog(`🔇 Action: mute(${newMute})`);
-//         const res = mute(newMute);
-//         setIsMuted(newMute);
-//         addLog(`Result: ${res}`);
-//     };
+    const handleStartRecording = () => {
+        const config: CameraConfig = {
+            maxDurationMs: 10000, // 10 seconds for testing
+            maxSizeMB: 50,
+            maxStorageUsageMB: 500,
+            autoDelete: true,
+            autoOptimize: false,
+            lensFacing: "back",
+            quality: "720p"
+        };
+        const success = startRecording(config);
+        addLog(`startRecording: ${success}`);
+    };
 
-//     const handleFetchFiles = () => {
-//         addLog("📁 Action: getSavedVideoFiles()");
-//         const fetched = getSavedVideoFiles();
-//         setFiles(fetched);
-//         addLog(`Result: Found ${fetched.length} files.`);
-//     };
+    const handleStopRecording = () => {
+        const success = stopRecording();
+        addLog(`stopRecording: ${success}`);
+    };
 
-//     const handleDelete = (path: string) => {
-//         addLog(`🗑️ Action: deleteVideoFile(${path.split("/").pop()})`);
-//         const res = deleteVideoFile(path);
-//         addLog(`Result: ${res}`);
-//         if (res) handleFetchFiles(); // refresh list
-//     };
+    const handlePause = () => addLog(`pauseRecording: ${pauseRecording()}`);
+    const handleResume = () => addLog(`resumeRecording: ${resumeRecording()}`);
 
-//     return (
-//         <SafeAreaView style={styles.container}>
-//             {/* --- TOP: CAMERA PREVIEW --- */}
-//             <View style={styles.cameraContainer}>
-//                 {cameraPermission?.granted ? (
-//                     <DriveCamView
-//                         style={styles.camera}
-//                         previewEnabled={showPreview}
-//                     />
-//                 ) : (
-//                     <Text style={{ color: "white", textAlign: "center" }}>
-//                         No Camera Permission
-//                     </Text>
-//                 )}
-//                 {!showPreview && (
-//                     <View style={styles.overlay}>
-//                         <Text style={{ color: "white" }}>
-//                             Preview Disabled (Background Mode)
-//                         </Text>
-//                     </View>
-//                 )}
-//             </View>
+    const handleToggleMute = () => {
+        const newState = !isMuted;
+        const success = mute(newState);
+        if (success) setIsMuted(newState);
+        addLog(`mute(${newState}): ${success}`);
+    };
 
-//             {/* --- MIDDLE: DEBUG CONSOLE --- */}
-//             <View style={styles.consoleContainer}>
-//                 <Text style={styles.consoleTitle}>Debug Logs:</Text>
-//                 <ScrollView
-//                     style={styles.console}
-//                     ref={scrollViewRef}
-//                     onContentSizeChange={() =>
-//                         scrollViewRef.current?.scrollToEnd({ animated: true })
-//                     }
-//                 >
-//                     {logs.map((log, i) => (
-//                         <Text key={i} style={styles.logText}>
-//                             {log}
-//                         </Text>
-//                     ))}
-//                 </ScrollView>
-//                 <Button
-//                     title="Clear Logs"
-//                     onPress={() => setLogs([])}
-//                     color="#444"
-//                 />
-//             </View>
+    const handleFlip = () => addLog(`flipCamera: ${flipCamera()}`);
 
-//             {/* --- BOTTOM: CONTROLS --- */}
-//             <View style={styles.controlsContainer}>
-//                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-//                     <View style={styles.btnGroup}>
-//                         <Button
-//                             title="Start Preview"
-//                             onPress={handleStartPreview}
-//                             color="#4CAF50"
-//                         />
-//                         <Button
-//                             title="Shutdown"
-//                             onPress={handleShutdown}
-//                             color="#F44336"
-//                         />
-//                         <Button
-//                             title="Toggle Preview UI"
-//                             onPress={() => setShowPreview(!showPreview)}
-//                         />
+    const handleGetFiles = () => {
+        // Note: If you changed this to an AsyncFunction in Kotlin, you must await this.
+        // Based on your current sync implementation:
+        try {
+            const saved = getSavedVideoFiles();
+            setFiles(saved);
+            addLog(`getSavedVideoFiles: Found ${saved.length} files`);
+        } catch (e: any) {
+            addLog(`getFiles Error: ${e.message}`);
+        }
+    };
 
-//                         <Button
-//                             title="Start REC"
-//                             onPress={handleStartRecording}
-//                             color="#f00"
-//                         />
-//                         <Button
-//                             title="Stop REC"
-//                             onPress={handleStopRecording}
-//                             color="#555"
-//                         />
+    const handleDeleteFirstFile = () => {
+        if (files.length === 0) {
+            addLog("No files to delete");
+            return;
+        }
+        const target = files[0].path;
+        const success = deleteVideoFile(target);
+        addLog(`deleteVideoFile: ${success}`);
+        if (success) handleGetFiles(); // Refresh list
+    };
 
-//                         <Button title="Flip Cam" onPress={handleFlip} />
-//                         <Button
-//                             title={isMuted ? "Unmute" : "Mute"}
-//                             onPress={handleToggleMute}
-//                         />
+    const handleShutdown = () => addLog(`shutdownCamera: ${shutdownCamera()}`);
 
-//                         <Button
-//                             title="Pause"
-//                             onPress={() => {
-//                                 addLog("⏸️ Action: pauseRecording()");
-//                                 pauseRecording();
-//                             }}
-//                         />
-//                         <Button
-//                             title="Resume"
-//                             onPress={() => {
-//                                 addLog("▶️ Action: resumeRecording()");
-//                                 resumeRecording();
-//                             }}
-//                         />
-//                     </View>
-//                 </ScrollView>
-//             </View>
+    if (!hasPermissions) {
+        return (
+            <View style={styles.center}>
+                <Text>Awaiting Permissions...</Text>
+            </View>
+        );
+    }
 
-//             {/* --- BOTTOM: FILE SYSTEM --- */}
-//             <View style={styles.filesContainer}>
-//                 <Button title="Fetch Files" onPress={handleFetchFiles} />
-//                 <FlatList
-//                     data={files}
-//                     keyExtractor={item => item.path}
-//                     renderItem={({ item }) => (
-//                         <View style={styles.fileRow}>
-//                             <Text style={styles.fileText} numberOfLines={1}>
-//                                 {item.name} (
-//                                 {(item.size / 1024 / 1024).toFixed(2)} MB)
-//                             </Text>
-//                             <Button
-//                                 title="Del"
-//                                 onPress={() => handleDelete(item.path)}
-//                                 color="red"
-//                             />
-//                         </View>
-//                     )}
-//                 />
-//             </View>
-//         </SafeAreaView>
-//     );
-// }
+    return (
+        <View style={styles.container}>
+            <View style={styles.cameraContainer}>
+                <DriveCamView
+                    style={styles.camera}
+                    previewEnabled={previewEnabled}
+                />
+            </View>
 
-// const styles = StyleSheet.create({
-//     container: { flex: 1, backgroundColor: "#121212" },
-//     cameraContainer: {
-//         height: 250,
-//         backgroundColor: "#000",
-//         position: "relative"
-//     },
-//     camera: { flex: 1 },
-//     overlay: {
-//         ...StyleSheet.absoluteFillObject,
-//         backgroundColor: "rgba(0,0,0,0.7)",
-//         justifyContent: "center",
-//         alignItems: "center"
-//     },
+            <View style={styles.controls}>
+                <ScrollView contentContainerStyle={styles.grid}>
+                    <TouchableOpacity
+                        style={styles.btn}
+                        onPress={handleStartPreview}
+                    >
+                        <Text style={styles.btnText}>Start Preview</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.btn}
+                        onPress={() => setPreviewEnabled(!previewEnabled)}
+                    >
+                        <Text style={styles.btnText}>
+                            Toggle View: {previewEnabled ? "ON" : "OFF"}
+                        </Text>
+                    </TouchableOpacity>
 
-//     consoleContainer: {
-//         flex: 1,
-//         backgroundColor: "#1e1e1e",
-//         margin: 5,
-//         padding: 5,
-//         borderRadius: 5
-//     },
-//     consoleTitle: { color: "#888", fontSize: 12, marginBottom: 5 },
-//     console: { flex: 1 },
-//     logText: {
-//         color: "#0f0",
-//         fontFamily: "monospace",
-//         fontSize: 11,
-//         marginBottom: 2
-//     },
+                    <TouchableOpacity
+                        style={[styles.btn, styles.btnRecord]}
+                        onPress={handleStartRecording}
+                    >
+                        <Text style={styles.btnText}>Start Record</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.btn, styles.btnStop]}
+                        onPress={handleStopRecording}
+                    >
+                        <Text style={styles.btnText}>Stop Record</Text>
+                    </TouchableOpacity>
 
-//     controlsContainer: { padding: 5, backgroundColor: "#222" },
-//     btnGroup: { flexDirection: "row", gap: 10, paddingHorizontal: 5 },
+                    <TouchableOpacity style={styles.btn} onPress={handlePause}>
+                        <Text style={styles.btnText}>Pause</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.btn} onPress={handleResume}>
+                        <Text style={styles.btnText}>Resume</Text>
+                    </TouchableOpacity>
 
-//     filesContainer: { height: 150, backgroundColor: "#333", padding: 5 },
-//     fileRow: {
-//         flexDirection: "row",
-//         justifyContent: "space-between",
-//         alignItems: "center",
-//         borderBottomWidth: 1,
-//         borderBottomColor: "#555",
-//         paddingVertical: 5
-//     },
-//     fileText: { color: "white", fontSize: 12, flex: 1, marginRight: 10 }
-// });
+                    <TouchableOpacity
+                        style={styles.btn}
+                        onPress={handleToggleMute}
+                    >
+                        <Text style={styles.btnText}>
+                            Mute: {isMuted ? "ON" : "OFF"}
+                        </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.btn} onPress={handleFlip}>
+                        <Text style={styles.btnText}>Flip Lens</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.btn}
+                        onPress={handleGetFiles}
+                    >
+                        <Text style={styles.btnText}>List Files</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.btn, styles.btnDelete]}
+                        onPress={handleDeleteFirstFile}
+                    >
+                        <Text style={styles.btnText}>Delete 1st File</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.btn, styles.btnStop]}
+                        onPress={handleShutdown}
+                    >
+                        <Text style={styles.btnText}>Shutdown Service</Text>
+                    </TouchableOpacity>
+                </ScrollView>
+            </View>
+
+            <ScrollView
+                style={styles.logContainer}
+                ref={scrollViewRef}
+                onContentSizeChange={() =>
+                    scrollViewRef.current?.scrollToEnd({ animated: true })
+                }
+            >
+                {logs.map((log, index) => (
+                    <Text key={index} style={styles.logText}>
+                        {log}
+                    </Text>
+                ))}
+            </ScrollView>
+        </View>
+    );
+}
+
+const styles = StyleSheet.create({
+    container: { flex: 1, backgroundColor: "#000" },
+    center: { flex: 1, justifyContent: "center", alignItems: "center" },
+    cameraContainer: { flex: 1, backgroundColor: "#111" },
+    camera: { flex: 1 },
+    controls: { height: 250, backgroundColor: "#222", padding: 10 },
+    grid: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        justifyContent: "space-between"
+    },
+    btn: {
+        width: "48%",
+        backgroundColor: "#444",
+        padding: 12,
+        borderRadius: 8,
+        marginBottom: 10,
+        alignItems: "center"
+    },
+    btnRecord: { backgroundColor: "#d9534f" },
+    btnStop: { backgroundColor: "#f0ad4e" },
+    btnDelete: { backgroundColor: "#d9534f" },
+    btnText: { color: "#fff", fontWeight: "bold" },
+    logContainer: {
+        height: 150,
+        backgroundColor: "#000",
+        padding: 10,
+        borderTopWidth: 1,
+        borderColor: "#333"
+    },
+    logText: {
+        color: "#0f0",
+        fontFamily: "monospace",
+        fontSize: 10,
+        marginBottom: 4
+    }
+});

@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { StyleSheet, View, Alert, TouchableOpacity, Text } from "react-native";
 import { useCameraPermissions, useMicrophonePermissions } from "expo-camera";
 import * as Linking from "expo-linking";
+import { router, useIsFocused } from "expo-router";
 
 import Header from "../components/Header.tsx";
 import CameraOptions from "../components/CameraOptions.tsx";
@@ -16,6 +17,7 @@ export default function App() {
     const [micPermission, requestMicPermission] = useMicrophonePermissions();
 
     const requested = useRef(false);
+    const isFocused = useIsFocused();
 
     // index.tsx — drop the showPreview gate, start whenever permission is granted
     useEffect(() => {
@@ -47,10 +49,12 @@ export default function App() {
             <Header />
 
             <View style={{ flex: 1 }}>
-                <CameraView
-                    style={styles.camera}
-                    previewEnabled={showPreview}
-                />
+                {isFocused && showPreview && (
+                    <CameraView
+                        style={styles.camera}
+                        previewEnabled={showPreview}
+                    />
+                )}
 
                 {camPermission.granted ? (
                     <CameraOptions />

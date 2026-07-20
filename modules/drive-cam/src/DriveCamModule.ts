@@ -1,5 +1,9 @@
 import { requireNativeModule, Subscription } from "expo-modules-core";
-import { CameraConfig, SavedVideoFile } from "./DriveCam.types";
+import {
+    CameraConfig,
+    SavedVideoFile,
+    CameraEventPayload
+} from "./DriveCam.types";
 
 // 1. Get the module
 const DriveCamModule = requireNativeModule("DriveCam");
@@ -44,9 +48,9 @@ export function flipCamera(): boolean {
     return DriveCamModule.flipCamera();
 }
 
-// 2. Direct listener attachment (Modern Expo API)
+// 2. Direct listener attachment with strong typing
 export function addRecordingEventListener(
-    listener: (event: any) => void
+    listener: (event: CameraEventPayload) => void
 ): Subscription {
     return DriveCamModule.addListener("onRecordingEvent", listener);
 }
