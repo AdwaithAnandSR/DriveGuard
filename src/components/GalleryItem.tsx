@@ -1,5 +1,5 @@
 import React from "react";
-import { Text, TouchableOpacity, View, StyleSheet} from "react-native";
+import { Text, TouchableOpacity, View, StyleSheet } from "react-native";
 import { router } from "expo-router";
 
 import { formatFileSize } from "../utils/file.ts";
@@ -18,7 +18,7 @@ interface RenderItemProps {
     toggleSelectItem: (uri: string) => void;
 }
 
-const RenderItem = ({
+export const RenderItem = ({
     item,
     isSelecting,
     isSelected,
@@ -67,6 +67,55 @@ const RenderItem = ({
                 <Text style={styles.size}>{formatFileSize(item.size)}</Text>
             </View>
         </TouchableOpacity>
+    );
+};
+
+const isSameDay = (a: number, b: number) => {
+    const d1 = new Date(a);
+    const d2 = new Date(b);
+
+    return (
+        d1.getFullYear() === d2.getFullYear() &&
+        d1.getMonth() === d2.getMonth() &&
+        d1.getDate() === d2.getDate()
+    );
+};
+
+const getDateLabel = (timestamp: number) => {
+    const date = new Date(timestamp);
+
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+
+    if (isSameDay(date.getTime(), today.getTime())) return "Today";
+
+    if (isSameDay(date.getTime(), yesterday.getTime())) return "Yesterday";
+
+    return date.toLocaleDateString(undefined, {
+        day: "numeric",
+        month: "long",
+        year: "numeric"
+    });
+};
+
+export const ListSeparatorComponent = ({
+    leadingItem,
+    trailingItem
+}: {
+    leadingItem: VideoItem;
+    trailingItem?: VideoItem;
+}) => {
+    if (!trailingItem) return null;
+
+    if (isSameDay(leadingItem.createdAt, trailingItem.createdAt)) return null;
+
+    return (
+        <View style={styles.dateSeparator}>
+            <Text style={styles.dateSeparatorText}>
+                {getDateLabel(trailingItem.createdAt)}
+            </Text>
+        </View>
     );
 };
 
@@ -122,7 +171,16 @@ const styles = StyleSheet.create({
     size: {
         color: "white",
         fontSize: 8
+    },
+    dateSeparator: {
+        paddingTop: 20,
+        paddingBottom: 8,
+        paddingHorizontal: 6
+    },
+
+    dateSeparatorText: {
+        color: "#bdbdbd",
+        fontSize: 15,
+        fontWeight: "600"
     }
 });
-
-export default RenderItem;

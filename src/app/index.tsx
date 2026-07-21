@@ -18,14 +18,14 @@ export default function App() {
     const isFocused = useIsFocused();
 
     useEffect(() => {
-        if (!camPermission) return;
+        if (!camPermission || !micPermission) return;
 
-        if (camPermission.granted) {
+        if (camPermission.granted && micPermission.granted) {
             CamUtils.startPreview();
             return;
         }
 
-        if (camPermission.canAskAgain) {
+        if (camPermission.canAskAgain && micPermission.canAskAgain) {
             reqPermissions();
             return;
         }

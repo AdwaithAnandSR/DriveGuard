@@ -91,7 +91,7 @@ export default function TopRow() {
                             {QUALITIES.map(i => (
                                 <TouchableOpacity
                                     key={i}
-                                    onPress={() => setQuality(i + "p")}
+                                    onPress={() => setQuality(i)}
                                 >
                                     <Text
                                         style={{
@@ -99,7 +99,7 @@ export default function TopRow() {
                                             fontSize: 15
                                         }}
                                     >
-                                        {i}p
+                                        {i}
                                     </Text>
                                 </TouchableOpacity>
                             ))}

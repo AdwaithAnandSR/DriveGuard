@@ -4,7 +4,11 @@ import { FlashList, ListRenderItem } from "@shopify/flash-list";
 
 import { CamUtils } from "../utils/camera.ts";
 import { useStore } from "../utils/store";
-import RenderItem, { VideoItem } from "../components/GalleryItem.tsx";
+import {
+    VideoItem,
+    ListSeparatorComponent,
+    RenderItem
+} from "../components/GalleryItem.tsx";
 
 const getFiles = CamUtils.getFiles;
 
@@ -75,8 +79,10 @@ const Gallery = ({ fullview, toggleFullView }) => {
             <FlashList
                 data={files}
                 keyExtractor={keyExtractor}
+                showsVerticalScrollIndicator={false}
                 renderItem={renderItem}
                 estimatedItemSize={130}
+                ItemSeparatorComponent={ListSeparatorComponent}
                 ListEmptyComponent={ListEmptyComponent}
                 contentContainerStyle={{ paddingTop: 40 }}
                 drawDistance={300}

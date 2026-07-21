@@ -22,6 +22,7 @@ export const CamUtils = {
             if (cameraStatus !== "granted" || audioStatus !== "granted") {
                 throw new Error("Permissions not granted for camera or audio");
             }
+            
 
             const {
                 maxStorageUsageMB,
@@ -32,7 +33,7 @@ export const CamUtils = {
                 videoQuality,
                 maxVideoSizeInMB
             } = useStore.getState();
-
+            
             const res = await DriveCam.startRecording({
                 maxDurationMs: limitDuration * 60 * 1000,
                 maxSizeMB: maxVideoSizeInMB,
@@ -76,7 +77,6 @@ export const CamUtils = {
 
     async muteAudio(isMuted: boolean) {
         try {
-            console.log("got ", isMuted);
             await DriveCam.mute(!isMuted);
             return { success: true };
         } catch (error) {

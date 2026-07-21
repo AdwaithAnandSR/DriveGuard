@@ -1,5 +1,5 @@
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Text, StyleSheet, Switch, ScrollView, Pressable } from "react-native";
+import { Text, StyleSheet, View, Switch, ScrollView, Pressable } from "react-native";
 import { MenuView } from "@expo/ui/community/menu";
 
 import SettingRow from "../components/SettingsRow";
@@ -41,6 +41,21 @@ const STORAGE_OPTIONS = [
     { id: "10g", title: "10 GB" }
 ];
 
+const InfoCard = () => {
+    return (
+        <View style={infoStyles.container}>
+            <Text style={infoStyles.title}>Recording Tip</Text>
+            <Text style={infoStyles.text}>
+                If you notice lag, stuttering, or the camera preview repeatedly
+                turning off and on while recording, try selecting a lower
+                recording quality. Lower resolutions require less processing
+                power and can provide a smoother recording experience,
+                especially on older devices.
+            </Text>
+        </View>
+    );
+};
+
 export default function SettingsScreen() {
     const autoDelete = useStore(state => state.autoDelete);
     const setAutoDelete = useStore(state => state.setAutoDelete);
@@ -71,7 +86,7 @@ export default function SettingsScreen() {
             : `${maxVideoSizeInMB} MB`;
 
     return (
-        <ScrollView style={styles.container}>
+        <ScrollView showsVerticalScrollIndicator={false} style={styles.container}>
             <Text style={styles.title}>Settings</Text>
 
             <SettingRow
@@ -170,6 +185,7 @@ export default function SettingsScreen() {
                     </MenuView>
                 }
             />
+            <InfoCard />
         </ScrollView>
     );
 }
@@ -179,7 +195,8 @@ const styles = StyleSheet.create({
         flexGrow: 1,
         backgroundColor: "#000",
         paddingHorizontal: 18,
-        paddingTop: 30
+        paddingTop: 30,
+        paddingBottom: 100
     },
     title: {
         color: "#fff",
@@ -196,5 +213,29 @@ const styles = StyleSheet.create({
         color: "#fff",
         fontSize: 15,
         marginRight: 4
+    }
+});
+
+const infoStyles = StyleSheet.create({
+    container: {
+        marginHorizontal: 16,
+        marginVertical: 12,
+        padding: 14,
+        borderRadius: 12,
+        backgroundColor: "#1C1C1E",
+        borderLeftWidth: 4,
+        borderLeftColor: "#FFB300",
+        
+    },
+    title: {
+        color: "#FFFFFF",
+        fontSize: 16,
+        fontWeight: "700",
+        marginBottom: 6
+    },
+    text: {
+        color: "#C7C7CC",
+        fontSize: 14,
+        lineHeight: 20
     }
 });
