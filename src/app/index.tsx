@@ -1,8 +1,16 @@
 import { useEffect } from "react";
-import { StyleSheet, View, Alert, TouchableOpacity, Text } from "react-native";
+import {
+    StyleSheet,
+    View,
+    Alert,
+    TouchableOpacity,
+    Text,
+    BackHandler
+} from "react-native";
 import { useCameraPermissions, useMicrophonePermissions } from "expo-camera";
 import * as Linking from "expo-linking";
 import { useIsFocused } from "expo-router";
+import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 
 import Header from "../components/Header.tsx";
 import CameraOptions from "../components/CameraOptions.tsx";
@@ -42,6 +50,52 @@ export default function App() {
             ]
         );
     }, [camPermission]);
+
+    useEffect(() => {
+        activateKeepAwakeAsync();
+
+        return () => {
+            deactivateKeepAwake().catch(() => {});
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!isFocused) return;
+
+        const onBackPress = () => {
+            Alert.alert(
+                "Exit App",
+                "Are you sure you want to exit?",
+                [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                        text: "Exit",
+                        style: "destructive",
+                        onPress: async () => {
+                            try {
+                                await CamUtils.shutdownCamera();
+                                await deactivateKeepAwake();
+                            } finally {
+                                setTimeout(() => {
+                                    BackHandler.exitApp();
+                                }, 150);
+                            }
+                        }
+                    }
+                ],
+                { cancelable: true }
+            );
+
+            return true;
+        };
+
+        const subscription = BackHandler.addEventListener(
+            "hardwareBackPress",
+            onBackPress
+        );
+
+        return () => subscription.remove();
+    }, [isFocused]);
 
     if (!camPermission)
         return <View style={[styles.camera, { height: "100%" }]} />;
