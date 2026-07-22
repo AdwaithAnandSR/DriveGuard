@@ -1,21 +1,9 @@
 import { Directory, Paths, File } from "expo-file-system";
+import { CamUtils } from "./camera.ts";
 
-export const list = () => {
-    const recordings = new Directory(Paths.document, "Recordings");
-
-    if (!recordings.exists) return [];
-
-    return recordings
-        .list()
-        .filter(file => file.name.match(/\.(mp4|mov|mkv|webm)$/i))
-        .map(file => ({
-            uri: file.uri,
-            thumbnail: file.uri.replace(/\.[^.]+$/, ".jpg"),
-            name: file.name,
-            creationTime: file.creationTime,
-            size: file.size
-        }))
-        .sort((a, b) => b.creationTime - a.creationTime);
+export const list = async () => {
+    const { files } = await CamUtils.getFiles();
+    return files ?? [];
 };
 
 export const deleteSelected = async multiSelectList => {

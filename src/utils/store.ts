@@ -1,45 +1,99 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import { mmkvStorage } from "./storage.ts";
+import { mmkvStorage, storage } from "./storage.ts";
 
 export type VideoQuality = "2160p" | "1080p" | "720p" | "480p";
+export type LensFacing = "back" | "front";
+
+interface VideoItem {
+    path: string;
+    name: string;
+    createdAt: number;
+    size: number;
+}
 
 interface SettingsState {
     videoQuality: VideoQuality;
-    limitBytes: number;
+    maxStorageUsageMB: number;
+    maxVideoSizeInMB: number;
     limitDuration: number;
     isMuted: boolean;
+    paused: boolean;
     fullview: boolean;
+    isRecording: boolean;
     autoDelete: boolean;
+    autoOptimize: boolean;
+    lensFacing: LensFacing;
+    showPreview: boolean;
+    files: VideoItem[];
 
     setVideoQuality: (quality: VideoQuality) => void;
-    setLimitBytes: (bytes: number) => void;
+    setMaxStorageUsageMB: (bytes: number) => void;
+    setMaxVideoSizeInMB: (mb: number) => void;
     setLimitDuration: (bytes: number) => void;
+    setRecording: (value: boolean) => void;
+    setPaused: (value: boolean) => void;
+    setFiles: (files: VideoItem[]) => void;
+    deleteFile: (path: string) => void;
+    setAutoDelete: (value: boolean) => void;
+    setAutoOptimize: (value: boolean) => void;
+    toggleShowPreview: () => void;
     toggleMuted: () => void;
     toggleFullview: () => void;
-    setAutoDelete: (value: boolean) => void;
+    toggleLensFacing: () => void;
 }
 
 export const useStore = create<SettingsState>()(
     persist(
         (set, get) => ({
             videoQuality: "1080p",
-            limitBytes: 500 * 1024 * 1024,
-            limitDuration: 5,
+            maxStorageUsageMB: 500,
+            maxVideoSizeInMB: 500,
+            limitDuration: 5, // in min
             isMuted: false,
             fullview: false,
+            isRecording: false,
+            autoOptimize: true,
             autoDelete: true,
+            paused: false,
+            lensFacing: "back",
+            showPreview: true,
+            files: [],
 
             setVideoQuality: videoQuality => set({ videoQuality }),
-            setLimitBytes: limitBytes => set({ limitBytes }),
+            setMaxStorageUsageMB: maxStorageUsageMB =>
+                set({ maxStorageUsageMB }),
+            setMaxVideoSizeInMB: maxVideoSizeInMB => set({ maxVideoSizeInMB }),
             setLimitDuration: limitDuration => set({ limitDuration }),
-            toggleMuted: () => set({ isMuted: !get().isMuted }),
+            setRecording: isRecording => set({ isRecording }),
+            setPaused: paused => set({ paused }),
+            setFiles: files => set({ files }),
+            deleteFile: path =>
+                set(state => ({
+                    files: state.files.filter(file => file.path !== path)
+                })),
+            setAutoDelete: autoDelete => set({ autoDelete }),
+            setAutoOptimize: autoOptimize => set({ autoOptimize }),
             toggleFullview: () => set({ fullview: !get().fullview }),
-            setAutoDelete: autoDelete => set({ autoDelete })
+            toggleMuted: () => set({ isMuted: !get().isMuted }),
+            toggleLensFacing: () =>
+                set({
+                    lensFacing: get().lensFacing === "back" ? "front" : "back"
+                }),
+            toggleShowPreview: () => set({ showPreview: !get().showPreview })
         }),
         {
-            name: "settings",
-            storage: createJSONStorage(() => mmkvStorage)
+            name: "DriveCam",
+            storage: createJSONStorage(() => mmkvStorage),
+            partialize: state => ({
+                videoQuality: state.videoQuality,
+                maxStorageUsageMB: state.maxStorageUsageMB,
+                maxVideoSizeInMB: state.maxVideoSizeInMB,
+                limitDuration: state.limitDuration,
+                autoDelete: state.autoDelete,
+                autoOptimize: state.autoOptimize,
+                showPreview: state.showPreview
+            })
         }
     )
 );

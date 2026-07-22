@@ -1,0 +1,2 @@
+option to delete files mannually
+get deep detail on file
